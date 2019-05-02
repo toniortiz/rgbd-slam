@@ -2,6 +2,7 @@
 #include "Core/frame.h"
 #include "dataseticlrgbd.h"
 #include "datasettumrgbd.h"
+#include "datasetcorbsrgbd.h"
 
 using namespace std;
 
@@ -32,8 +33,8 @@ Dataset::Ptr Dataset::create(const DS& dataset)
         return make_shared<DatasetTUM>();
     case ICL:
         return make_shared<DatasetICL>();
-    case D:
-        return nullptr;
+    case CORBS:
+        return make_shared<DatasetCORBS>();
     }
 
     return nullptr;
