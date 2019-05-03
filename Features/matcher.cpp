@@ -16,13 +16,13 @@ Matcher::Matcher(float nnratio)
     mpMatcher = cv::BFMatcher::create(Extractor::mNorm);
 }
 
-void Matcher::draw(Frame& ref, const Frame& cur, const vector<cv::DMatch>& m12, const int delay)
+void Matcher::drawMatches(Frame::Ptr ref, Frame::Ptr cur, const vector<cv::DMatch>& m12, const int delay)
 {
     try {
         cv::Mat out;
-        const vector<cv::KeyPoint> vKP1 = ref.mvKeys;
-        const vector<cv::KeyPoint> vKP2 = cur.mvKeys;
-        cv::drawMatches(ref.mImGray, vKP1, cur.mImGray, vKP2, m12, out, cv::Scalar::all(-1),
+        const vector<cv::KeyPoint> vKP1 = ref->mvKeys;
+        const vector<cv::KeyPoint> vKP2 = cur->mvKeys;
+        cv::drawMatches(ref->mImGray, vKP1, cur->mImGray, vKP2, m12, out, cv::Scalar::all(-1),
             cv::Scalar::all(-1), vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
         cv::imshow("Matches", out);
@@ -32,7 +32,7 @@ void Matcher::draw(Frame& ref, const Frame& cur, const vector<cv::DMatch>& m12, 
     }
 }
 
-int Matcher::projectionMatch(Frame::Ptr F1, Frame::Ptr F2, std::vector<cv::DMatch>& vMatches12, const float th)
+int Matcher::projectionMatch(Frame::Ptr F1, Frame::Ptr F2, vector<cv::DMatch>& vMatches12, const float th)
 {
     float fx = F1->mpCamera->fx();
     float fy = F1->mpCamera->fy();
@@ -41,24 +41,16 @@ int Matcher::projectionMatch(Frame::Ptr F1, Frame::Ptr F2, std::vector<cv::DMatc
 
     cv::Mat Rcw = F2->getRotation();
     cv::Mat tcw = F2->getTranslation();
-    cv::Mat twc = F2->getCameraCenter();
-
-    cv::Mat Rlw = F1->getRotation();
-    cv::Mat tlw = F1->getTranslation();
-
-    cv::Mat tlc = Rlw * twc + tlw;
 
     set<size_t> trainIdxs;
 
     for (size_t i1 = 0; i1 < F1->N; ++i1) {
-        Landmark::Ptr pLM = F1->getLandmark(i1);
-
-        if (!pLM)
-            continue;
         if (F1->isOutlier(i1))
             continue;
+        if (!F1->isValidObs(i1))
+            continue;
 
-        cv::Mat xw = pLM->getWorldPos();
+        cv::Mat xw = F1->unprojectWorld(i1);
         cv::Mat x3Dc = Rcw * xw + tcw;
 
         const float xc = x3Dc.at<float>(0);
@@ -80,7 +72,7 @@ int Matcher::projectionMatch(Frame::Ptr F1, Frame::Ptr F2, std::vector<cv::DMatc
         if (vIndices2.empty())
             continue;
 
-        const cv::Mat d1 = pLM->getDescriptor();
+        const cv::Mat d1 = F1->mDescriptors.row(i1);
 
         double bestDist = numeric_limits<double>::max();
         size_t bestIdx2;

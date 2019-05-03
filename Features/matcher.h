@@ -14,9 +14,10 @@ public:
     Matcher(float nnratio = 0.6);
 
     // Draw
-    static void draw(Frame& ref, const Frame& cur, const std::vector<cv::DMatch>& m12, const int delay = 1);
+    static void drawMatches(std::shared_ptr<Frame> ref, std::shared_ptr<Frame> cur, const std::vector<cv::DMatch>& m12, const int delay = 1);
 
-    int match(std::shared_ptr<Frame> ref, std::shared_ptr<Frame> cur, std::vector<cv::DMatch>& vMatches12, const bool discardOutliers = true);
+    int match(std::shared_ptr<Frame> ref, std::shared_ptr<Frame> cur, std::vector<cv::DMatch>& vMatches12,
+        const bool discardOutliers = true);
 
     int projectionMatch(std::shared_ptr<Frame> F1, std::shared_ptr<Frame> F2, std::vector<cv::DMatch>& vMatches12, const float th = 5.0f);
 

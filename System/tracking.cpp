@@ -51,6 +51,9 @@ cv::Mat Tracking::track(shared_ptr<Frame> newFrame)
 
             mpCurFrame->mpReferenceKF = mpLastKeyFrame;
 
+            // Update motion model
+            mVelocity = mpCurFrame->getPose() * mpRefFrame.first->getPoseInverse();
+
             if (needKeyFrame())
                 createKeyFrame();
 
@@ -108,38 +111,39 @@ void Tracking::trackReference()
     vector<cv::DMatch> vMatches, vInliers;
     matcher.match(pRefFrame, mpCurFrame, vMatches);
 
-    //    RIcp icp(200, 10, 3.0f, 4);
-    //    bool b = icp.compute(pRefFrame, mpCurFrame, vMatches);
+    RIcp icp(200, 10, 3.0f, 4);
+    bool b = icp.compute(pRefFrame, mpCurFrame, vMatches);
 
-    //    // If the motion estimation agaisnt the reference frame fails, then the motion
-    //    // estimation is tried with the second most recent frame. This simple heuristic
-    //    // serves to eliminate drift in situations  where the camera viewpoint does not
-    //    // vary significantly, a technique especially useful when hovering
-    //    if (!b) {
-    //        cout << "Match with second ref" << endl;
-    //        vMatches.clear();
-    //        pRefFrame = mpRefFrame.second;
-    //        matcher.match(pRefFrame, mpCurFrame, vMatches);
+    // If the motion estimation agaisnt the reference frame fails, then the motion
+    // estimation is tried with the second most recent frame. This simple heuristic
+    // serves to eliminate drift in situations  where the camera viewpoint does not
+    // vary significantly, a technique especially useful when hovering
+    if (!b) {
+        cout << "Match with second ref" << endl;
+        vMatches.clear();
+        pRefFrame = mpRefFrame.second;
+        matcher.match(pRefFrame, mpCurFrame, vMatches);
 
-    //        b = icp.compute(pRefFrame, mpCurFrame, vMatches);
-    //    }
+        b = icp.compute(pRefFrame, mpCurFrame, vMatches);
+    }
 
-    //    //    if (icp.rmse > 1.0f) {
-    //    //        Solver::Ptr pnp(new PnPRansac(pRefFrame, mpCurFrame, icp.mvInliers /*vMatches*/));
-    //    //        b = pnp->compute(vInliers);
-    //    //    } else
-    //    vInliers = icp.mvInliers;
+    //    if (icp.rmse > 1.0f) {
+    //        Solver::Ptr pnp(new PnPRansac(pRefFrame, mpCurFrame, icp.mvInliers /*vMatches*/));
+    //        b = pnp->compute(vInliers);
+    //    } else
+    vInliers = icp.mvInliers;
 
-    //    {
-    //        unique_lock<mutex> lock(mMutexStatistics);
-    //        mnInliers = vInliers.size();
-    //        mnAcumInliers += vInliers.size();
-    //        mnMeanInliers = mnAcumInliers / mpCurFrame->getId();
-    //    }
+    {
+        unique_lock<mutex> lock(mMutexStatistics);
+        mnInliers = vInliers.size();
+        mnAcumInliers += vInliers.size();
+        mnMeanInliers = mnAcumInliers / mpCurFrame->getId();
+    }
 
-    //    if (!b)
-    //        recover();
+    if (!b)
+        recover();
 
+    /*
     Ransac::parameters params;
     params.verbose = 0;
     params.errorVersionVO = 0;
@@ -174,6 +178,7 @@ void Tracking::trackReference()
 
     if (!b)
         recover();
+*/
 }
 
 bool Tracking::correct()
@@ -208,7 +213,7 @@ bool Tracking::correct()
 
 void Tracking::recover()
 {
-    mpCurFrame->setPose(mpRefFrame.first->getPose());
+    mpCurFrame->setPose(/*mVelocity **/ mpRefFrame.first->getPose());
     mState = OK;
 }
 

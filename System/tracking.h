@@ -88,6 +88,8 @@ protected:
     int mnMeanInliers;
     std::mutex mMutexStatistics;
 
+    cv::Mat mVelocity;
+
     std::mutex mMutexTrack;
 };
 
