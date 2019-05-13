@@ -209,6 +209,22 @@ cv::Point2f RGBDcamera::project3Dto2D(Eigen::Vector3f feature3D)
     return cv::Point2f(u, v);
 }
 
+void RGBDcamera::project3Dto2D(const float& x, const float& y, const float& z, float& ox, float& oy)
+{
+    float fx, fy, cx, cy;
+    {
+        unique_lock<mutex> lock(mMutexIntrinsic);
+        fx = mpIntrinsic->mFx;
+        fy = mpIntrinsic->mFy;
+        cx = mpIntrinsic->mCx;
+        cy = mpIntrinsic->mCy;
+    }
+
+    const float invz = 1.0f / z;
+    ox = fx * x * invz + cx;
+    oy = fy * y * invz + cy;
+}
+
 ostream& operator<<(ostream& out, RGBDcamera& camera)
 {
     out << "Calibration: " << camera.k() << endl;

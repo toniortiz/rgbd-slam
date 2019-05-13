@@ -6,6 +6,7 @@
 #include "Drawer/viewer.h"
 #include "Features/matcher.h"
 #include "LoopClosing/loopclosing.h"
+#include "Solver/gicp.h"
 #include "Solver/icp.h"
 #include "Solver/pnpsolver.h"
 #include "Solver/posegraph.h"
@@ -35,6 +36,17 @@ Tracking::Tracking(shared_ptr<DBoW3::Vocabulary> pVoc, Map::Ptr pMap)
     mpMapDrawer = make_shared<MapDrawer>(pMap, mpPoseGraph);
     mpViewer = make_shared<Viewer>(mpMapDrawer, pMap);
     mpViewerThread = make_shared<thread>(&Viewer::run, mpViewer);
+
+    mParams.verbose = 0;
+    mParams.errorVersionVO = 0;
+    mParams.errorVersionMap = 0;
+    mParams.inlierThresholdEuclidean = 0.04;
+    mParams.inlierThresholdReprojection = 2.0;
+    mParams.inlierThresholdMahalanobis = 0.0002;
+    mParams.minimalInlierRatioThreshold = 0.2;
+    mParams.minimalNumberOfMatches = 15;
+    mParams.usedPairs = 3;
+    mParams.errorVersion = Ransac::EUCLIDEAN_ERROR;
 }
 
 cv::Mat Tracking::track(shared_ptr<Frame> newFrame)
@@ -127,11 +139,31 @@ void Tracking::trackReference()
         b = icp.compute(pRefFrame, mpCurFrame, vMatches);
     }
 
-    //    if (icp.rmse > 1.0f) {
-    //        Solver::Ptr pnp(new PnPRansac(pRefFrame, mpCurFrame, icp.mvInliers /*vMatches*/));
-    //        b = pnp->compute(vInliers);
-    //    } else
+    if (icp.rmse > 0.7f) {
+        Eigen::Matrix4f guess = icp.mT21;
+        Solver::Ptr solver(new Gicp(pRefFrame, mpCurFrame, icp.mvInliers, guess));
+        static_cast<Gicp&>(*solver).setMaximumIterations(10);
+        b = solver->compute(vInliers);
+    }
     vInliers = icp.mvInliers;
+
+    //    if (ransac->Compute(pF1, pF2, vMatches12)) {
+    //        T = ransac->GetTransformation();
+    //        float rmse = ransac->GetRMSE();
+    //        mStatus = true;
+
+    //        if (rmse * 10.0f > mMiu2) {
+    //            if (icp->ComputeSubset(pF1, pF2, ransac->GetMatches()))
+    //                T = icp->GetTransformation();
+    //        } else if (rmse * 10.0f > mMiu1) {
+    //            if (icp->Compute(pF1, pF2, ransac->GetMatches(), T))
+    //                T = icp->GetTransformation();
+    //        }
+
+    //    } else {
+    //        T = Eigen::Matrix4f::Identity();
+    //        mStatus = false;
+    //    }
 
     {
         unique_lock<mutex> lock(mMutexStatistics);
@@ -144,17 +176,7 @@ void Tracking::trackReference()
         recover();
 
     /*
-    Ransac::parameters params;
-    params.verbose = 0;
-    params.errorVersionVO = 0;
-    params.errorVersionMap = 0;
-    params.inlierThresholdEuclidean = 0.04;
-    params.inlierThresholdReprojection = 2.0;
-    params.inlierThresholdMahalanobis = 0.0002;
-    params.minimalInlierRatioThreshold = 0.2;
-    params.minimalNumberOfMatches = 15;
-    params.usedPairs = 3;
-    params.errorVersion = Ransac::EUCLIDEAN_ERROR;
+
 
     Solver::Ptr ransac(new Ransac(pRefFrame, mpCurFrame, vMatches, params));
     bool b = ransac->compute(vInliers);
@@ -234,7 +256,7 @@ bool Tracking::needKeyFrame()
     // New keyframes are added when the accumulated motion since the previous
     // keyframe exceeds either 10° in rotation or 23 cm in translation
     static const double mint = 0.23; // m
-    static const double minr = 0.1745; // rad
+    static const double minr = 0.1745;
 
     cv::Mat delta = mpCurFrame->getPoseInverse() * mpLastKeyFrame->getPose();
     bool c1 = tnorm(delta) > mint;

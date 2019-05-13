@@ -9,7 +9,7 @@
 
 class Gicp : public Solver {
 public:
-    Gicp(const std::shared_ptr<Frame> F1, std::shared_ptr<Frame> F2, const std::vector<cv::DMatch>& matches);
+    Gicp(const std::shared_ptr<Frame> F1, std::shared_ptr<Frame> F2, const std::vector<cv::DMatch>& matches, Eigen::Matrix4f& guess);
 
     virtual ~Gicp() {}
 
@@ -20,27 +20,30 @@ public:
 
     bool compute(std::vector<cv::DMatch>& inliers) override;
 
-    bool Align(const Eigen::Matrix4f& guess, const bool isSourceTransformed = false);
+    Eigen::Matrix4f align();
 
-    void SetMaximumIterations(int iters);
-    void SetMaxCorrespondenceDistance(double dist);
-    void SetEuclideanFitnessEpsilon(double epsilon);
-    void SetMaximumOptimizerIterations(int iters);
-    void SetRANSACIterations(int iters);
-    void SetRANSACOutlierRejectionThreshold(double thresh);
-    void SetTransformationEpsilon(double epsilon);
-    void SetUseReciprocalCorrespondences(bool flag);
+    void setMaximumIterations(int iters);
+    void setMaxCorrespondenceDistance(double dist);
+    void setEuclideanFitnessEpsilon(double epsilon);
+    void setMaximumOptimizerIterations(int iters);
+    void setRANSACIterations(int iters);
+    void setRANSACOutlierRejectionThreshold(double thresh);
+    void setTransformationEpsilon(double epsilon);
+    void setUseReciprocalCorrespondences(bool flag);
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
-    void CreateCloudsFromMatches(const Frame* pF1, const Frame* pF2, const std::vector<cv::DMatch>& vMatches12, const Eigen::Matrix4f& T12, const bool& calcDist = false);
+    void createCloudsFromMatches();
 
-    std::vector<cv::DMatch> GetSubset(const std::vector<cv::DMatch>& vMatches12);
+    std::vector<cv::DMatch> getSubset(const std::vector<cv::DMatch>& vMatches12);
 
     pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> mGicp;
+    Eigen::Matrix4f mGuess;
 
 public:
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSourceCloud;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr mpTargetCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpSrcCloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr mpTgtCloud;
 };
 
 #endif // GENERALIZEDICP_H

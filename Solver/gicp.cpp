@@ -1,42 +1,82 @@
 #include "gicp.h"
 #include "Core/frame.h"
-
+#include "System/converter.h"
 using namespace std;
 
-//GeneralizedICP::GeneralizedICP()
-//    : GeneralizedICP(15, 0.05)
-//{
-//}
+Gicp::Gicp(const Frame::Ptr F1, Frame::Ptr F2, const vector<cv::DMatch>& matches, Eigen::Matrix4f& guess)
+    : Solver(F1, F2, matches)
+    , mGuess(guess)
+{
+    mGicp.setMaximumIterations(15);
+    mGicp.setMaxCorrespondenceDistance(0.08);
+    mGicp.setEuclideanFitnessEpsilon(1);
+    mGicp.setTransformationEpsilon(1e-9);
 
-//GeneralizedICP::GeneralizedICP(int iters, double maxCorrespondenceDist)
-//{
-//    mGicp.setMaximumIterations(iters);
-//    mGicp.setMaxCorrespondenceDistance(maxCorrespondenceDist);
-//    mGicp.setEuclideanFitnessEpsilon(1);
-//    mGicp.setTransformationEpsilon(1e-9);
+    mpSrcCloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+    mpTgtCloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+}
 
-//    mpSourceCloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-//    mpTargetCloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+bool Gicp::compute(vector<cv::DMatch>& inliers)
+{
+    if (mMatches.size() < 20)
+        return false;
 
-//    mT12 = Eigen::Matrix4f::Identity();
-//}
+    createCloudsFromMatches();
+    Eigen::Matrix4f T = align();
 
-//bool GeneralizedICP::Compute(const Frame* pF1, const Frame* pF2, const vector<cv::DMatch>& vMatches12, Eigen::Matrix4f& guess)
-//{
-//    CreateCloudsFromMatches(pF1, pF2, vMatches12, guess, false);
-//    return Align(guess);
-//}
+    if (!T.isIdentity()) {
+        mF2->setPose(Converter::toMat<float, 4, 4>(T) * mF1->getPose());
+        return true;
+    } else
+        return false;
+}
 
-//bool GeneralizedICP::Compute(const pcl::PointCloud<pcl::PointXYZ>::Ptr pSourceCloud, const pcl::PointCloud<pcl::PointXYZ>::Ptr pTargetCloud,
-//    const Eigen::Matrix4f& guess, const bool isSourceTransformed)
-//{
-//    if (pSourceCloud->points.size() < 20 || pTargetCloud->points.size() < 20)
-//        return false;
+void Gicp::createCloudsFromMatches()
+{
+    mpSrcCloud->points.clear();
+    mpTgtCloud->points.clear();
 
-//    mpSourceCloud = pSourceCloud;
-//    mpTargetCloud = pTargetCloud;
-//    return Align(guess, isSourceTransformed);
-//}
+    mpSrcCloud->points.reserve(mMatches.size());
+    mpTgtCloud->points.reserve(mMatches.size());
+
+    for (const auto& m : mMatches) {
+        const cv::Point3f& source = mF1->mvKeys3Dc[m.queryIdx];
+        const cv::Point3f& target = mF2->mvKeys3Dc[m.trainIdx];
+
+        mpSrcCloud->points.push_back(pcl::PointXYZ(source.x, source.y, source.z));
+        mpTgtCloud->points.push_back(pcl::PointXYZ(target.x, target.y, target.z));
+    }
+}
+
+Eigen::Matrix4f Gicp::align()
+{
+    mGicp.setInputSource(mpSrcCloud);
+    mGicp.setInputTarget(mpTgtCloud);
+
+    pcl::PointCloud<pcl::PointXYZ> regCloud;
+    mGicp.align(regCloud, mGuess);
+
+    if (mGicp.hasConverged())
+        return mGicp.getFinalTransformation().matrix();
+    else
+        return Eigen::Matrix4f::Identity();
+}
+
+void Gicp::setMaximumIterations(int iters) { mGicp.setMaximumIterations(iters); }
+
+void Gicp::setMaxCorrespondenceDistance(double dist) { mGicp.setMaxCorrespondenceDistance(dist); }
+
+void Gicp::setEuclideanFitnessEpsilon(double epsilon) { mGicp.setEuclideanFitnessEpsilon(epsilon); }
+
+void Gicp::setMaximumOptimizerIterations(int iters) { mGicp.setMaximumOptimizerIterations(iters); }
+
+void Gicp::setRANSACIterations(int iters) { mGicp.setRANSACIterations(iters); }
+
+void Gicp::setRANSACOutlierRejectionThreshold(double thresh) { mGicp.setRANSACOutlierRejectionThreshold(thresh); }
+
+void Gicp::setTransformationEpsilon(double epsilon) { mGicp.setTransformationEpsilon(epsilon); }
+
+void Gicp::setUseReciprocalCorrespondences(bool flag) { mGicp.setUseReciprocalCorrespondences(flag); }
 
 //bool GeneralizedICP::ComputeSubset(const Frame* pF1, const Frame* pF2, const vector<cv::DMatch>& vMatches12)
 //{
@@ -46,77 +86,6 @@ using namespace std;
 //    CreateCloudsFromMatches(pF1, pF2, vMatchesSubset, guess, false);
 
 //    return Align(guess);
-//}
-
-//bool GeneralizedICP::Align(const Eigen::Matrix4f& guess, const bool isSourceTransformed)
-//{
-//    mGicp.setInputSource(mpSourceCloud);
-//    mGicp.setInputTarget(mpTargetCloud);
-
-//    pcl::PointCloud<pcl::PointXYZ> regCloud;
-//    if (isSourceTransformed)
-//        mGicp.align(regCloud);
-//    else
-//        mGicp.align(regCloud, guess);
-
-//    if (mGicp.hasConverged()) {
-//        if (isSourceTransformed)
-//            mT12 = mGicp.getFinalTransformation().matrix() * guess;
-//        else
-//            mT12 = mGicp.getFinalTransformation().matrix();
-
-//        mScore = mGicp.getFitnessScore();
-//        return true;
-//    } else {
-//        mT12 = Eigen::Matrix4f::Identity();
-//        mScore = 1e6;
-//        return false;
-//    }
-//}
-
-//void GeneralizedICP::CreateCloudsFromMatches(const Frame* pF1, const Frame* pF2, const vector<cv::DMatch>& vMatches12, const Eigen::Matrix4f& T12, const bool& calcDist)
-//{
-//    mpSourceCloud->points.clear();
-//    mpTargetCloud->points.clear();
-
-//    double dist = 0.0;
-//    cv::Mat R(3, 3, CV_32F);
-//    cv::Mat t(3, 1, CV_32F);
-
-//    if (calcDist) {
-//        for (int i = 0; i < 3; ++i)
-//            for (int j = 0; j < 3; ++j)
-//                R.at<float>(i, j) = T12(i, j);
-
-//        for (int i = 0; i < 3; ++i)
-//            t.at<float>(i, 0) = T12(i, 3);
-//    }
-
-//    for (const auto& m : vMatches12) {
-//        const cv::Point3f& source = pF1->mvKeys3Dc[m.queryIdx];
-//        const cv::Point3f& target = pF2->mvKeys3Dc[m.trainIdx];
-
-//        if (isnan(source.z) || isnan(target.z))
-//            continue;
-//        if (source.z <= 0 || target.z <= 0)
-//            continue;
-
-//        if (calcDist) {
-//            cv::Mat src = (cv::Mat_<float>(3, 1) << source.x, source.y, source.z);
-//            cv::Mat tgt = (cv::Mat_<float>(3, 1) << target.x, target.y, target.z);
-
-//            cv::Mat trans = R * src + t;
-//            dist += cv::norm(trans - tgt);
-//        }
-
-//        mpSourceCloud->points.push_back(pcl::PointXYZ(source.x, source.y, source.z));
-//        mpTargetCloud->points.push_back(pcl::PointXYZ(target.x, target.y, target.z));
-//    }
-
-//    if (calcDist) {
-//        double meanDist = dist / mpTargetCloud->size();
-//        SetMaxCorrespondenceDistance(std::min(std::max(0.01, meanDist), 0.08));
-//    }
 //}
 
 //vector<cv::DMatch> GeneralizedICP::GetSubset(const vector<cv::DMatch>& vMatches12)
@@ -144,19 +113,3 @@ using namespace std;
 
 //    return vSampledMatches;
 //}
-
-//void GeneralizedICP::SetMaximumIterations(int iters) { mGicp.setMaximumIterations(iters); }
-
-//void GeneralizedICP::SetMaxCorrespondenceDistance(double dist) { mGicp.setMaxCorrespondenceDistance(dist); }
-
-//void GeneralizedICP::SetEuclideanFitnessEpsilon(double epsilon) { mGicp.setEuclideanFitnessEpsilon(epsilon); }
-
-//void GeneralizedICP::SetMaximumOptimizerIterations(int iters) { mGicp.setMaximumOptimizerIterations(iters); }
-
-//void GeneralizedICP::SetRANSACIterations(int iters) { mGicp.setRANSACIterations(iters); }
-
-//void GeneralizedICP::SetRANSACOutlierRejectionThreshold(double thresh) { mGicp.setRANSACOutlierRejectionThreshold(thresh); }
-
-//void GeneralizedICP::SetTransformationEpsilon(double epsilon) { mGicp.setTransformationEpsilon(epsilon); }
-
-//void GeneralizedICP::SetUseReciprocalCorrespondences(bool flag) { mGicp.setUseReciprocalCorrespondences(flag); }

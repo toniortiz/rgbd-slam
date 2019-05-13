@@ -30,7 +30,7 @@ int main()
     DatasetType::Ptr dataset(new DatasetType());
     dataset->open(baseDir);
 
-    Extractor::Ptr extractor(new Extractor(Extractor::SVO, Extractor::BRIEF, Extractor::NORMAL));
+    Extractor::Ptr extractor(new Extractor(Extractor::GFTT, Extractor::BRIEF, Extractor::ADAPTIVE));
     shared_ptr<DBoW3::Vocabulary> voc(new DBoW3::Vocabulary(vocDir));
     Map::Ptr pMap(new Map());
     Tracking tracker(voc, pMap);

@@ -47,7 +47,7 @@ void Viewer::run()
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera", true, true);
-    pangolin::Var<bool> menuShowOctomap("menu.Show Octomap", true, true);
+    pangolin::Var<bool> menuShowOctomap("menu.Show Octomap", false, true);
     pangolin::Var<bool> menuShowVertices("menu.Show Vertices", true, true);
     pangolin::Var<bool> menuShowEdges("menu.Show Edges", true, true);
     pangolin::Var<double> menuTime("menu.Track time:", 0);

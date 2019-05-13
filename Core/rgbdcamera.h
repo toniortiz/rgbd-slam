@@ -51,6 +51,7 @@ public:
     Bearing createRandomVisiblePoint(double depth);
 
     cv::Point2f project3Dto2D(Eigen::Vector3f feature3D);
+    void project3Dto2D(const float& x, const float& y, const float& z, float& ox, float& oy);
 
     friend std::ostream& operator<<(std::ostream& out, RGBDcamera& camera);
 

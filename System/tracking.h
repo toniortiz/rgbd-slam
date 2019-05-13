@@ -7,6 +7,7 @@
 #include <mutex>
 #include <opencv2/core.hpp>
 #include <thread>
+#include "Solver/ransac.h"
 
 class Frame;
 class LoopDetector;
@@ -91,6 +92,8 @@ protected:
     cv::Mat mVelocity;
 
     std::mutex mMutexTrack;
+
+     Ransac::parameters mParams;
 };
 
 #endif
