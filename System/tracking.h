@@ -1,13 +1,13 @@
 #ifndef GX_TRACKING_H
 #define GX_TRACKING_H
 
+#include "Solver/ransac.h"
 #include "System/macros.h"
 #include <DBoW3/Vocabulary.h>
 #include <list>
 #include <mutex>
 #include <opencv2/core.hpp>
 #include <thread>
-#include "Solver/ransac.h"
 
 class Frame;
 class LoopDetector;
@@ -49,6 +49,8 @@ public:
     int getMeanInliers();
     int getCurrentInliers();
 
+    cv::Mat getTrackedPointsImage();
+
     std::list<cv::Mat> mRelativeFramePoses;
     std::list<std::shared_ptr<Frame>> mReferences;
     std::list<double> mFrameTimes;
@@ -68,6 +70,9 @@ protected:
 
     std::shared_ptr<Frame> mpCurFrame;
     std::pair<std::shared_ptr<Frame>, std::shared_ptr<Frame>> mpRefFrame;
+
+    std::mutex mMutexImages;
+    cv::Mat mImObs;
 
     TrackerState mState;
 
@@ -91,7 +96,7 @@ protected:
 
     std::mutex mMutexTrack;
 
-     Ransac::parameters mParams;
+    Ransac::parameters mParams;
 };
 
 #endif

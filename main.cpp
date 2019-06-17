@@ -13,8 +13,8 @@
 
 using namespace std;
 
-const string baseDir = "/home/antonio/Documents/M.C.C/Tesis/Dataset/TUM/rgbd_dataset_freiburg1_room/";
-const string vocDir = "./Vocabulary/ORBvoc.txt";
+const string baseDir = "/home/antonio/Documents/M.C.C/Tesis/Dataset/TUM/rgbd_dataset_freiburg3_nostructure_texture_near_withloop/";
+const string vocDir = "./Vocabulary/voc_TUM_FAST_BRIEF.yml.gz";
 
 /* Available Datasets
  *  - DatasetTUM
@@ -30,7 +30,7 @@ int main()
     DatasetType::Ptr dataset(new DatasetType());
     dataset->open(baseDir);
 
-    Extractor::Ptr extractor(new Extractor(Extractor::ORB, Extractor::ORB, Extractor::ADAPTIVE));
+    Extractor::Ptr extractor(new Extractor(Extractor::FAST, Extractor::BRIEF, Extractor::ADAPTIVE));
     shared_ptr<DBoW3::Vocabulary> voc(new DBoW3::Vocabulary(vocDir));
     Map::Ptr pMap(new Map());
     Tracking tracker(voc, pMap);
@@ -41,7 +41,6 @@ int main()
     for (size_t ni = 0; ni < dataset->size(); ni++) {
         tm.start();
         Frame::Ptr frame = dataset->grabFrame(extractor, ni);
-        frame->drawObservations();
 
         tracker.track(frame);
         tracker.setCurrentPose(frame->getPose());

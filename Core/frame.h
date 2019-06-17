@@ -78,6 +78,7 @@ public:
     void drawImage(const bool& gray = true, const int& delay = 1, const bool& destroy = false, const std::string& title = "frame") const;
     void drawObservations(const int& delay = 1, const bool& destroy = false, const std::string& title = "observations");
     void drawInliers(const int& delay = 1, const bool& destroy = false, const std::string& title = "inliers");
+    cv::Mat drawTackedPoints();
 
     bool isValidObs(const size_t& idx);
 

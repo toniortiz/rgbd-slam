@@ -3,7 +3,6 @@
 #include "Core/map.h"
 #include "Core/rgbdcamera.h"
 #include "Drawer/mapdrawer.h"
-#include "Drawer/viewer.h"
 #include "Features/matcher.h"
 #include "LoopClosing/loopclosing.h"
 #include "Solver/gicp.h"
@@ -12,6 +11,7 @@
 #include "Solver/posegraph.h"
 #include "Solver/ransac.h"
 #include "Solver/ransacpnp.h"
+#include "Drawer/viewer.h"
 #include "Solver/ricp.h"
 #include "converter.h"
 
@@ -33,7 +33,7 @@ Tracking::Tracking(shared_ptr<DBoW3::Vocabulary> pVoc, Map::Ptr pMap)
 
     // Launch viewer thread
     mpMapDrawer = make_shared<MapDrawer>(pMap, mpPoseGraph);
-    mpViewer = make_shared<Viewer>(mpMapDrawer, pMap);
+    mpViewer = make_shared<Viewer>(mpMapDrawer, pMap, this);
 
     mParams.verbose = 0;
     mParams.errorVersionVO = 0;
@@ -78,6 +78,10 @@ cv::Mat Tracking::track(shared_ptr<Frame> newFrame)
     }
 
     updateRelativePose();
+
+    unique_lock<mutex> lock2(mMutexImages);
+    mImObs = mpCurFrame->drawTackedPoints();
+
     return mpCurFrame->getPose();
 }
 
@@ -283,8 +287,8 @@ double rnorm(const cv::Mat& T)
 bool Tracking::needKeyFrame()
 {
     // New keyframes are added when the accumulated motion since the previous
-    // keyframe exceeds either 10° in rotation or 23 cm in translation
-    static const double mint = 0.23; // m
+    // keyframe exceeds either 10° in rotation or 20 cm in translation
+    static const double mint = 0.20; // m
     static const double minr = 0.1745;
 
     cv::Mat delta = mpCurFrame->getPoseInverse() * mpLastKeyFrame->getPose();
@@ -300,11 +304,10 @@ void Tracking::createKeyFrame()
     mpLastKeyFrame = mpCurFrame;
     mpCurFrame->mpReferenceKF = mpLastKeyFrame;
 
-    mpLastKeyFrame->createCloud();
-    mpLastKeyFrame->passThroughFilter("z", 0.5, 4.0);
-    mpLastKeyFrame->downsampleCloud(0.04f);
-    mpLastKeyFrame->statisticalFilterCloud(50, 1.0);
-
+    //    mpLastKeyFrame->createCloud();
+    //    mpLastKeyFrame->passThroughFilter("z", 0.5, 4.0);
+    //    mpLastKeyFrame->downsampleCloud(0.04f);
+    //    mpLastKeyFrame->statisticalFilterCloud(50, 1.0);
 
     mpPoseGraph->insertKeyFrame(mpLastKeyFrame);
 }
@@ -394,4 +397,10 @@ int Tracking::getCurrentInliers()
 {
     unique_lock<mutex> lock(mMutexStatistics);
     return mnInliers;
+}
+
+cv::Mat Tracking::getTrackedPointsImage()
+{
+    unique_lock<mutex> lock(mMutexImages);
+    return mImObs.clone();
 }

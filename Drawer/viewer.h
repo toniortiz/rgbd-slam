@@ -8,13 +8,14 @@
 
 class MapDrawer;
 class Map;
+class Tracking;
 
 class Viewer {
 public:
     SMART_POINTER_TYPEDEFS(Viewer);
 
 public:
-    Viewer(std::shared_ptr<MapDrawer> pMapDrawer, std::shared_ptr<Map> pMap);
+    Viewer(std::shared_ptr<MapDrawer> pMapDrawer, std::shared_ptr<Map> pMap, Tracking* pTracker);
 
     void run();
 
@@ -30,6 +31,8 @@ public:
 private:
     std::shared_ptr<MapDrawer> mpMapDrawer;
     std::shared_ptr<Map> mpMap;
+
+    Tracking* mpTracking;
 
     // 1/fps in ms
     double mT;

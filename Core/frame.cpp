@@ -394,6 +394,21 @@ void Frame::drawInliers(const int& delay, const bool& destroy, const string& tit
         cv::destroyWindow(title);
 }
 
+cv::Mat Frame::drawTackedPoints()
+{
+    cv::Mat out;
+    cv::cvtColor(mImGray, out, cv::COLOR_GRAY2BGR);
+
+    for (size_t i = 0; i < N; ++i) {
+        if (getLandmark(i)) {
+            const cv::KeyPoint& kp = mvKeys[i];
+            cv::circle(out, kp.pt, 4 * (kp.octave + 1), cv::Scalar(0, 255, 0), 1);
+        }
+    }
+
+    return out;
+}
+
 bool Frame::isValidObs(const size_t& idx)
 {
     return mvKeys3Dc[idx].z > 0;

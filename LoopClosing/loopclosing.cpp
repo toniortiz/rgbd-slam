@@ -28,7 +28,7 @@ vector<Frame::Ptr> LoopDetector::obtainCandidates(const Frame::Ptr pKF)
 
     double minScore = numeric_limits<double>::max();
     size_t N = pKFs.size();
-    for (size_t i = N - 1; i > N - 3; i--) {
+    for (size_t i = N - 1; i > N - 4; i--) {
         Frame::Ptr pKFi = pKFs[i];
 
         if (pKFi == pKF)

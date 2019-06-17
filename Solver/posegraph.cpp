@@ -138,7 +138,6 @@ void PoseGraph::createLocalEdges()
             continue;
 
         matchLandmarks(pKF, sac.mvInliers);
-
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
 }
@@ -169,7 +168,6 @@ void PoseGraph::createRandomEdges(int n)
             continue;
 
         matchLandmarks(pKF, sac.mvInliers);
-
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
 }
@@ -250,7 +248,7 @@ bool PoseGraph::detectLoop()
         vector<cv::DMatch> vMatches;
         matcher.match(pKF, mpCurrentKF, vMatches);
 
-        uint th = mpTracker->getMeanInliers() * 0.23;
+        uint th = mpTracker->getMeanInliers() * 0.20;
 
         if (vMatches.size() < th)
             continue;
@@ -260,7 +258,6 @@ bool PoseGraph::detectLoop()
             continue;
 
         matchLandmarks(pKF, sac.mvInliers);
-
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
 
         {

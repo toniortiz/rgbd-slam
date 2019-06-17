@@ -7,9 +7,10 @@
 
 using namespace std;
 
-Viewer::Viewer(MapDrawer::Ptr pMapDrawer, Map::Ptr pMap)
+Viewer::Viewer(MapDrawer::Ptr pMapDrawer, Map::Ptr pMap, Tracking* pTracker)
     : mpMapDrawer(pMapDrawer)
     , mpMap(pMap)
+    , mpTracking(pTracker)
     , mbFinishRequested(false)
     , mbFinished(true)
     , mMeanTrackTime(0.0)
@@ -35,7 +36,7 @@ void Viewer::run()
 {
     mbFinished = false;
 
-    pangolin::CreateWindowAndBind("Map Viewer", 1024, 768);
+    pangolin::CreateWindowAndBind("Viewer", 1024, 768);
 
     // 3D Mouse handler requires depth testing to be enabled
     glEnable(GL_DEPTH_TEST);
@@ -64,6 +65,15 @@ void Viewer::run()
     pangolin::View& d_cam = pangolin::CreateDisplay()
                                 .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
                                 .SetHandler(new pangolin::Handler3D(s_cam));
+
+    pangolin::View& d_features = pangolin::Display("imgFeatures")
+                                     .SetAspect(1024.0 / 768.0);
+    pangolin::GlTexture texFeatures(mImageWidth, mImageHeight, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+
+    pangolin::CreateDisplay()
+        .SetBounds(0.0, 0.3f, pangolin::Attach::Pix(175), 1.0)
+        .SetLayout(pangolin::LayoutEqual)
+        .AddDisplay(d_features);
 
     pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
@@ -105,6 +115,14 @@ void Viewer::run()
             unique_lock<mutex> lock(mMutexUpdate);
             menuTime = mMeanTrackTime;
             menuLoopCandidates = mnLoopCandidates;
+        }
+
+        cv::Mat feats = mpTracking->getTrackedPointsImage();
+        if (!feats.empty()) {
+            texFeatures.Upload(feats.data, GL_BGR, GL_UNSIGNED_BYTE);
+            d_features.Activate();
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            texFeatures.RenderToViewportFlipY();
         }
 
         pangolin::FinishFrame();
@@ -160,7 +178,7 @@ void Viewer::shutdown()
     while (!isFinished())
         usleep(5000);
 
-    pangolin::BindToContext("Map Viewer");
+    pangolin::BindToContext("Viewer");
 
     if (mRunThread.joinable())
         mRunThread.join();
