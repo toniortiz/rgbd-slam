@@ -12,8 +12,6 @@ Landmark::Landmark(const cv::Mat& Pos, Map::Ptr pMap, Frame::Ptr frame, const si
     : nObs(0)
     , mnRefKFid(frame->getId())
     , mpMap(pMap)
-    , mnBALocalForKF(0)
-    , mnFuseCandidateForKF(0)
 {
     Pos.copyTo(mWorldPos);
     cv::Mat Ow = frame->getCameraCenter();

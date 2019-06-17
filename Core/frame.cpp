@@ -37,8 +37,6 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imDepth, const double& timeSta
     , mpCamera(pRGBDcamera)
     , mTimeStamp(timeStamp)
     , mpCloud(nullptr)
-    , mnBALocalForKF(0)
-    , mnBAFixedForKF(0)
     , mbIsKF(false)
 {
     // Frame ID

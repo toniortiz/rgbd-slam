@@ -56,9 +56,6 @@ public:
 
     static std::mutex mGlobalMutex;
 
-    int mnBALocalForKF;
-    int mnFuseCandidateForKF;
-
 protected:
     // Position in absolute coordinates
     cv::Mat mWorldPos;

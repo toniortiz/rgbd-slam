@@ -117,9 +117,6 @@ public:
     void addConnection(Frame::Ptr pFrame);
     std::set<Frame::Ptr> getConnectedKFs();
 
-    int mnBALocalForKF;
-    int mnBAFixedForKF;
-
 public:
     cv::Mat mImColor;
     cv::Mat mImGray;
