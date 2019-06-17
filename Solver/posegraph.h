@@ -6,6 +6,8 @@
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/edge_se3.h>
 #include <mutex>
+#include <opencv2/features2d.hpp>
+#include <thread>
 
 class Tracking;
 class LoopDetector;
@@ -32,10 +34,7 @@ public:
     bool removeVertex(int id);
     bool removeEdge(int id);
 
-
     void optimize(const int& iterations = 10);
-
-    void requestReset();
 
     void requestFinish();
 
@@ -56,11 +55,9 @@ protected:
 
     bool existEdge(const int v1, const int v2);
 
-    bool checkNewKeyFrames();
+    void matchLandmarks(std::shared_ptr<Frame> pKF, std::vector<cv::DMatch>& inliers);
 
-    void resetIfRequested();
-    bool mbResetRequested;
-    std::mutex mMutexReset;
+    bool checkNewKeyFrames();
 
     bool checkFinish();
     void setFinish();
@@ -84,6 +81,8 @@ protected:
 
     int mnKFsFromLastLoop;
     std::mutex mMutexUpdate;
+
+    std::thread mRunThread;
 };
 
 #endif // POSEGRAPH_H

@@ -76,11 +76,9 @@ protected:
     std::shared_ptr<LoopDetector> mpLoopCloser;
 
     std::shared_ptr<PoseGraph> mpPoseGraph;
-    std::shared_ptr<std::thread> mpGraphThread;
 
     std::shared_ptr<MapDrawer> mpMapDrawer;
     std::shared_ptr<Viewer> mpViewer;
-    std::shared_ptr<std::thread> mpViewerThread;
 
     std::shared_ptr<Frame> mpLastKeyFrame;
 

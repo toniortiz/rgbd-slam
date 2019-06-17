@@ -30,12 +30,10 @@ Tracking::Tracking(shared_ptr<DBoW3::Vocabulary> pVoc, Map::Ptr pMap)
 
     // Launch pose graph thread
     mpPoseGraph = make_shared<PoseGraph>(this, mpLoopCloser, pMap);
-    mpGraphThread = make_shared<thread>(&PoseGraph::run, mpPoseGraph);
 
     // Launch viewer thread
     mpMapDrawer = make_shared<MapDrawer>(pMap, mpPoseGraph);
     mpViewer = make_shared<Viewer>(mpMapDrawer, pMap);
-    mpViewerThread = make_shared<thread>(&Viewer::run, mpViewer);
 
     mParams.verbose = 0;
     mParams.errorVersionVO = 0;
@@ -107,6 +105,18 @@ void Tracking::initialize()
 {
     mpCurFrame->setPose(cv::Mat::eye(4, 4, CV_32F));
 
+    for (size_t i = 0; i < mpCurFrame->N; ++i) {
+        if (mpCurFrame->mvKeys3Dc[i].z > 0) {
+            cv::Mat Xw = mpCurFrame->unprojectWorld(i);
+            Landmark::Ptr pLM(new Landmark(Xw, mpMap, mpCurFrame, i));
+            pLM->addObservation(mpCurFrame->getId(), i);
+            pLM->setColor(mpCurFrame->mvKeysColor[i]);
+
+            mpMap->addLandmark(pLM);
+            mpCurFrame->addLandmark(pLM, i);
+        }
+    }
+
     mpRefFrame.first = mpCurFrame;
     mpRefFrame.second = mpCurFrame;
 
@@ -123,8 +133,8 @@ void Tracking::trackReference()
     vector<cv::DMatch> vMatches, vInliers;
     matcher.match(pRefFrame, mpCurFrame, vMatches);
 
-    RIcp icp(200, 10, 3.0f, 4);
-    bool b = icp.compute(pRefFrame, mpCurFrame, vMatches);
+    RIcp sac(200, 10, 3.0f, 4);
+    bool b = sac.compute(pRefFrame, mpCurFrame, vMatches);
 
     // If the motion estimation agaisnt the reference frame fails, then the motion
     // estimation is tried with the second most recent frame. This simple heuristic
@@ -136,16 +146,16 @@ void Tracking::trackReference()
         pRefFrame = mpRefFrame.second;
         matcher.match(pRefFrame, mpCurFrame, vMatches);
 
-        b = icp.compute(pRefFrame, mpCurFrame, vMatches);
+        b = sac.compute(pRefFrame, mpCurFrame, vMatches);
     }
 
-    if (icp.rmse > 0.7f) {
-        Eigen::Matrix4f guess = icp.mT21;
-        Solver::Ptr solver(new Gicp(pRefFrame, mpCurFrame, icp.mvInliers, guess));
-        static_cast<Gicp&>(*solver).setMaximumIterations(10);
+    if (sac.rmse > 0.7f) {
+        Eigen::Matrix4f guess = sac.mT21;
+        Solver::Ptr solver(new Gicp(pRefFrame, mpCurFrame, sac.mvInliers, guess));
+        static_cast<Gicp&>(*solver).setMaximumIterations(8);
         b = solver->compute(vInliers);
     }
-    vInliers = icp.mvInliers;
+    vInliers = sac.mvInliers;
 
     //    if (ransac->Compute(pF1, pF2, vMatches12)) {
     //        T = ransac->GetTransformation();
@@ -170,6 +180,25 @@ void Tracking::trackReference()
         mnInliers = vInliers.size();
         mnAcumInliers += vInliers.size();
         mnMeanInliers = mnAcumInliers / mpCurFrame->getId();
+    }
+
+    // Propagate Landmarks
+    for (auto& inlier : sac.mvInliers) {
+        Landmark::Ptr pLM = pRefFrame->getLandmark(inlier.queryIdx);
+
+        if (!pLM) {
+            cv::Mat Xw = mpCurFrame->unprojectWorld(inlier.trainIdx);
+            pLM = make_shared<Landmark>(Xw, mpMap, mpCurFrame, inlier.trainIdx);
+            pLM->addObservation(mpCurFrame->getId(), inlier.trainIdx);
+            pLM->addObservation(pRefFrame->getId(), inlier.queryIdx);
+            pLM->setColor(mpCurFrame->mvKeysColor[inlier.trainIdx]);
+
+            mpCurFrame->addLandmark(pLM, inlier.trainIdx);
+            pRefFrame->addLandmark(pLM, inlier.queryIdx);
+        } else {
+            mpCurFrame->addLandmark(pLM, inlier.trainIdx);
+            pLM->addObservation(mpCurFrame->getId(), inlier.trainIdx);
+        }
     }
 
     if (!b)
@@ -276,6 +305,7 @@ void Tracking::createKeyFrame()
     mpLastKeyFrame->downsampleCloud(0.04f);
     mpLastKeyFrame->statisticalFilterCloud(50, 1.0);
 
+
     mpPoseGraph->insertKeyFrame(mpLastKeyFrame);
 }
 
@@ -298,7 +328,6 @@ void Tracking::updateRelativePose()
 void Tracking::shutdown()
 {
     mpPoseGraph->shutdown();
-    mpGraphThread->join();
 
     cout << "\nPress any key to continue: ";
     cout.flush();
@@ -306,7 +335,6 @@ void Tracking::shutdown()
     cin >> answer;
 
     mpViewer->shutdown();
-    mpViewerThread->join();
 }
 
 void Tracking::saveKeyFrameTrajectory(const string& filename)
@@ -320,6 +348,8 @@ void Tracking::saveKeyFrameTrajectory(const string& filename)
         fout << (*pKF);
 
     fout.close();
+
+    cout << "Saved: " << filename << endl;
 }
 
 void Tracking::saveCameraTrajectory(const string& filename)
@@ -350,6 +380,8 @@ void Tracking::saveCameraTrajectory(const string& filename)
           << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
     }
     f.close();
+
+    cout << "Saved: " << filename << endl;
 }
 
 int Tracking::getMeanInliers()

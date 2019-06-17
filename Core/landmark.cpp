@@ -59,7 +59,6 @@ void Landmark::addObservation(KeyFrameID id, size_t obsId)
 
 void Landmark::eraseObservation(KeyFrameID id)
 {
-
     unique_lock<mutex> lock(mMutexFeatures);
     if (mObservations.count(id)) {
         nObs--;

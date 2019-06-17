@@ -1,9 +1,10 @@
 #ifndef VIEWER_H
 #define VIEWER_H
 
+#include "System/macros.h"
 #include <memory>
 #include <mutex>
-#include "System/macros.h"
+#include <thread>
 
 class MapDrawer;
 class Map;
@@ -19,13 +20,7 @@ public:
 
     void requestFinish();
 
-    void requestStop();
-
     bool isFinished();
-
-    bool isStopped();
-
-    void release();
 
     void setMeanTrackingTime(const double& time);
     void loopCandidates(const size_t& n);
@@ -33,8 +28,6 @@ public:
     void shutdown();
 
 private:
-    bool stop();
-
     std::shared_ptr<MapDrawer> mpMapDrawer;
     std::shared_ptr<Map> mpMap;
 
@@ -50,13 +43,11 @@ private:
     bool mbFinished;
     std::mutex mMutexFinish;
 
-    bool mbStopped;
-    bool mbStopRequested;
-    std::mutex mMutexStop;
-
     std::mutex mMutexUpdate;
     double mMeanTrackTime;
     int mnLoopCandidates;
+
+    std::thread mRunThread;
 };
 
 #endif // VIEWER_H

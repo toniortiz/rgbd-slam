@@ -76,7 +76,7 @@ void Frame::assignFeaturesToGrid()
         for (unsigned int j = 0; j < FRAME_GRID_ROWS; j++)
             mGrid[i][j].reserve(nReserve);
 
-    for (int i = 0; i < N; i++) {
+    for (size_t i = 0; i < N; i++) {
         const cv::KeyPoint& kp = mvKeysUn[i];
 
         int nGridPosX, nGridPosY;
@@ -420,7 +420,18 @@ void Frame::correctPose()
 {
     unique_lock<mutex> lck1(mMutexVertex);
     if (mpVertex) {
+        // Correct Frame pose
         setPose(Converter::toMat<float, 4, 4>(mpVertex->estimate().inverse().matrix().cast<float>()));
+
+        // Correct Landmark pose
+        for (size_t i = 0; i < N; ++i) {
+            Landmark::Ptr pLM = getLandmark(i);
+            if (!pLM)
+                continue;
+
+            cv::Mat Xw = unprojectWorld(i);
+            pLM->setWorldPos(Xw);
+        }
     }
 }
 

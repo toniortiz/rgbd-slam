@@ -18,7 +18,7 @@ void OctomapDrawer::reset()
     mOctomap.clear();
     mOctomap.setClampingThresMin(0.001);
     mOctomap.setClampingThresMax(0.999);
-    mOctomap.setResolution(0.04);
+    mOctomap.setResolution(0.08);
     mOctomap.setOccupancyThres(0.5);
     mOctomap.setProbHit(0.9);
     mOctomap.setProbMiss(0.4);

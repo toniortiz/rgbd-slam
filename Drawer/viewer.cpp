@@ -12,8 +12,6 @@ Viewer::Viewer(MapDrawer::Ptr pMapDrawer, Map::Ptr pMap)
     , mpMap(pMap)
     , mbFinishRequested(false)
     , mbFinished(true)
-    , mbStopped(true)
-    , mbStopRequested(false)
     , mMeanTrackTime(0.0)
     , mnLoopCandidates(0)
 {
@@ -29,12 +27,13 @@ Viewer::Viewer(MapDrawer::Ptr pMapDrawer, Map::Ptr pMap)
     mViewpointY = -0.7f;
     mViewpointZ = -1.8f;
     mViewpointF = 500.0f;
+
+    mRunThread = thread(&Viewer::run, this);
 }
 
 void Viewer::run()
 {
     mbFinished = false;
-    mbStopped = false;
 
     pangolin::CreateWindowAndBind("Map Viewer", 1024, 768);
 
@@ -47,11 +46,13 @@ void Viewer::run()
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera", true, true);
+    pangolin::Var<bool> menuShowLandmarks("menu.Landmarks", true, true);
     pangolin::Var<bool> menuShowOctomap("menu.Show Octomap", false, true);
     pangolin::Var<bool> menuShowVertices("menu.Show Vertices", true, true);
     pangolin::Var<bool> menuShowEdges("menu.Show Edges", true, true);
     pangolin::Var<double> menuTime("menu.Track time:", 0);
     pangolin::Var<int> menuNodes("menu.Nodes:", 0);
+    pangolin::Var<int> menuLandmarks("menu.Landmarks:", 0);
     pangolin::Var<int> menuLoopCandidates("menu.LC:", 0);
 
     // Define Camera Render Object (for view / scene browsing)
@@ -94,8 +95,11 @@ void Viewer::run()
             mpMapDrawer->drawPoseGraph(menuShowVertices, menuShowEdges);
         if (menuShowOctomap)
             mpMapDrawer->drawOctomap();
+        if (menuShowLandmarks)
+            mpMapDrawer->drawLandmarks();
 
         menuNodes = int(mpMap->keyFramesInMap());
+        menuLandmarks = int(mpMap->landmarksInMap());
 
         {
             unique_lock<mutex> lock(mMutexUpdate);
@@ -105,14 +109,10 @@ void Viewer::run()
 
         pangolin::FinishFrame();
 
-        if (stop()) {
-            while (isStopped()) {
-                usleep(3000);
-            }
-        }
-
         if (checkFinish())
             break;
+
+        usleep(3000);
     }
 
     setFinish();
@@ -142,41 +142,6 @@ bool Viewer::isFinished()
     return mbFinished;
 }
 
-void Viewer::requestStop()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    if (!mbStopped)
-        mbStopRequested = true;
-}
-
-bool Viewer::isStopped()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    return mbStopped;
-}
-
-bool Viewer::stop()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    unique_lock<mutex> lock2(mMutexFinish);
-
-    if (mbFinishRequested)
-        return false;
-    else if (mbStopRequested) {
-        mbStopped = true;
-        mbStopRequested = false;
-        return true;
-    }
-
-    return false;
-}
-
-void Viewer::release()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    mbStopped = false;
-}
-
 void Viewer::setMeanTrackingTime(const double& time)
 {
     unique_lock<mutex> lock(mMutexUpdate);
@@ -192,8 +157,11 @@ void Viewer::loopCandidates(const size_t& n)
 void Viewer::shutdown()
 {
     requestFinish();
-    if (!isFinished())
+    while (!isFinished())
         usleep(5000);
 
     pangolin::BindToContext("Map Viewer");
+
+    if (mRunThread.joinable())
+        mRunThread.join();
 }

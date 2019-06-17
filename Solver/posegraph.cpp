@@ -33,8 +33,7 @@ typedef g2o::LinearSolverEigen<BlockSolver::PoseMatrixType> EigenSolver;
 using namespace std;
 
 PoseGraph::PoseGraph(Tracking* pTracker, LoopDetector::Ptr pLooper, Map::Ptr pMap)
-    : mbResetRequested(false)
-    , mbFinishRequested(false)
+    : mbFinishRequested(false)
     , mbFinished(true)
     , mpTracker(pTracker)
     , mpLoopCloser(pLooper)
@@ -49,6 +48,8 @@ PoseGraph::PoseGraph(Tracking* pTracker, LoopDetector::Ptr pLooper, Map::Ptr pMa
 
     mOptimizer.setAlgorithm(algorithm);
     mOptimizer.setVerbose(false);
+
+    mRunThread = thread(&PoseGraph::run, this);
 }
 
 void PoseGraph::run()
@@ -68,14 +69,22 @@ void PoseGraph::run()
 
                 mpMap->informNewBigChange();
             }
-        }
 
-        resetIfRequested();
+            // Add reliable landmarks to map
+            for (size_t i = 0; i < mpCurrentKF->N; ++i) {
+                Landmark::Ptr pLM = mpCurrentKF->getLandmark(i);
+                if (!pLM)
+                    continue;
+
+                if (pLM->observations() > 5)
+                    mpMap->addLandmark(pLM);
+            }
+        }
 
         if (checkFinish())
             break;
 
-        usleep(5000);
+        usleep(3000);
     }
 
     setFinish();
@@ -124,11 +133,13 @@ void PoseGraph::createLocalEdges()
         if (vMatches.size() < 20)
             continue;
 
-        RIcp icp(200, 20, 3.0f, 4);
-        if (!icp.compute(pKF, mpCurrentKF, vMatches, false))
+        RIcp sac(200, 20, 3.0f, 4);
+        if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
             continue;
 
-        createEdge(pKF, Converter::toIsometry3d(icp.mT21.cast<double>()));
+        matchLandmarks(pKF, sac.mvInliers);
+
+        createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
 }
 
@@ -153,11 +164,13 @@ void PoseGraph::createRandomEdges(int n)
         if (vMatches.size() < 20)
             continue;
 
-        RIcp icp(200, 20, 3.0f, 4);
-        if (!icp.compute(pKF, mpCurrentKF, vMatches, false))
+        RIcp sac(200, 20, 3.0f, 4);
+        if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
             continue;
 
-        createEdge(pKF, Converter::toIsometry3d(icp.mT21.cast<double>()));
+        matchLandmarks(pKF, sac.mvInliers);
+
+        createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
 }
 
@@ -242,11 +255,13 @@ bool PoseGraph::detectLoop()
         if (vMatches.size() < th)
             continue;
 
-        RIcp icp(200, th, 3.0f, 4);
-        if (!icp.compute(pKF, mpCurrentKF, vMatches, false))
+        RIcp sac(200, th, 3.0f, 4);
+        if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
             continue;
 
-        createEdge(pKF, Converter::toIsometry3d(icp.mT21.cast<double>()));
+        matchLandmarks(pKF, sac.mvInliers);
+
+        createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
 
         {
             unique_lock<mutex> lock2(mMutexUpdate);
@@ -354,20 +369,28 @@ bool PoseGraph::existEdge(const int v1, const int v2)
     return mEdges.find(e1) != mEdges.end() || mEdges.find(e2) != mEdges.end();
 }
 
-void PoseGraph::requestReset()
+void PoseGraph::matchLandmarks(Frame::Ptr pKF, vector<cv::DMatch>& inliers)
 {
-    {
-        unique_lock<mutex> lock(mMutexReset);
-        mbResetRequested = true;
-    }
-
-    while (1) {
-        {
-            unique_lock<mutex> lock2(mMutexReset);
-            if (!mbResetRequested)
-                break;
+    for (auto& inlier : inliers) {
+        Landmark::Ptr pLM = pKF->getLandmark(inlier.queryIdx);
+        if (!pLM) {
+            pLM = mpCurrentKF->getLandmark(inlier.trainIdx);
+            if (!pLM) {
+                cv::Mat Xw = mpCurrentKF->unprojectWorld(inlier.trainIdx);
+                pLM = make_shared<Landmark>(Xw, mpMap, mpCurrentKF, inlier.trainIdx);
+                pLM->addObservation(mpCurrentKF->getId(), inlier.trainIdx);
+                pLM->addObservation(pKF->getId(), inlier.queryIdx);
+                pLM->setColor(mpCurrentKF->mvKeysColor[inlier.trainIdx]);
+                mpCurrentKF->addLandmark(pLM, inlier.trainIdx);
+                pKF->addLandmark(pLM, inlier.queryIdx);
+            } else {
+                pKF->addLandmark(pLM, inlier.queryIdx);
+                pLM->addObservation(pKF->getId(), inlier.queryIdx);
+            }
+        } else {
+            mpCurrentKF->addLandmark(pLM, inlier.trainIdx);
+            pLM->addObservation(mpCurrentKF->getId(), inlier.trainIdx);
         }
-        usleep(5000);
     }
 }
 
@@ -381,19 +404,6 @@ bool PoseGraph::isFinished()
 {
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
-}
-
-void PoseGraph::resetIfRequested()
-{
-    unique_lock<mutex> lock(mMutexReset);
-    if (mbResetRequested) {
-        mlpKeyFrameQueue.clear();
-        {
-            unique_lock<mutex> lock2(mMutexUpdate);
-            mnKFsFromLastLoop = 0;
-        }
-        mbResetRequested = false;
-    }
 }
 
 bool PoseGraph::checkFinish()
@@ -411,9 +421,12 @@ void PoseGraph::setFinish()
 void PoseGraph::shutdown()
 {
     requestFinish();
-    if (!isFinished())
+    while (!isFinished())
         usleep(5000);
 
     optimize();
     mpMap->informNewBigChange();
+
+    if (mRunThread.joinable())
+        mRunThread.join();
 }
