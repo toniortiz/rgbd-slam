@@ -61,6 +61,7 @@ void PoseGraph::run()
         if (checkNewKeyFrames()) {
             updateGraph();
 
+            // Pose-Graph global optimization
             if (detectLoop()) {
                 cout << "Loop detected" << endl;
                 optimize(20);
@@ -68,6 +69,23 @@ void PoseGraph::run()
                 cout << endl;
 
                 mpMap->informNewBigChange();
+            }
+            // Local optimization
+            else {
+                if (mpMap->keyFramesInMap() > 2) {
+                    set<Frame::Ptr> vpConKFs = mpCurrentKF->getConnectedKFs();
+                    vector<Frame::Ptr> vpKFs = mpMap->getAllKeyFrames();
+                    for (Frame::Ptr pKF : vpKFs)
+                        pKF->fixVertex(true);
+                    for (Frame::Ptr pKF : vpConKFs)
+                        pKF->fixVertex(false);
+
+                    mOptimizer.initializeOptimization();
+                    mOptimizer.optimize(10);
+
+                    for (Frame::Ptr pKF : vpConKFs)
+                        pKF->correctPose();
+                }
             }
 
             // Add reliable landmarks to map
@@ -194,6 +212,9 @@ void PoseGraph::createEdgeWithReference()
     edge->setInformation(Eigen::Matrix<double, 6, 6>::Identity() * 100.0);
     edge->setRobustKernel(new g2o::RobustKernelHuber());
 
+    mpCurrentKF->addConnection(mpReferenceKF);
+    mpReferenceKF->addConnection(mpCurrentKF);
+
     EdgeID id;
     id[mpReferenceKF->getId()] = mpCurrentKF->getId();
 
@@ -212,6 +233,9 @@ double PoseGraph::createEdge(Frame::Ptr pKF, const Eigen::Isometry3d& T)
     edge->setInformation(Eigen::Matrix<double, 6, 6>::Identity() * 100);
     edge->setRobustKernel(new g2o::RobustKernelHuber());
     edge->computeError();
+
+    mpCurrentKF->addConnection(pKF);
+    pKF->addConnection(mpCurrentKF);
 
     {
         EdgeID id;
@@ -273,7 +297,6 @@ bool PoseGraph::detectLoop()
 
 void PoseGraph::insertKeyFrame(Frame::Ptr pKF)
 {
-
     unique_lock<mutex> lock(mMutexQueue);
     mlpKeyFrameQueue.push_back(pKF);
 
@@ -340,8 +363,8 @@ void PoseGraph::optimize(const int& iterations)
     if (mOptimizer.vertices().size() > 5) {
 
         vector<Frame::Ptr> vpKFs = mpMap->getAllKeyFrames();
-        //        for (Frame::Ptr pKF : vpKFs)
-        //            pKF->fixVertex(pKF->getId() == 0);
+        for (Frame::Ptr pKF : vpKFs)
+            pKF->fixVertex(pKF->getId() == 0);
 
         mOptimizer.initializeOptimization();
         mOptimizer.optimize(iterations);

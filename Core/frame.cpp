@@ -37,6 +37,9 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imDepth, const double& timeSta
     , mpCamera(pRGBDcamera)
     , mTimeStamp(timeStamp)
     , mpCloud(nullptr)
+    , mnBALocalForKF(0)
+    , mnBAFixedForKF(0)
+    , mbIsKF(false)
 {
     // Frame ID
     mnId = nNextId++;
@@ -457,6 +460,12 @@ void Frame::fixVertex(bool fix)
         mpVertex->setFixed(fix);
 }
 
+std::vector<std::shared_ptr<Landmark>> Frame::getLandmarks()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return mvpLandmarks;
+}
+
 int Frame::getId()
 {
     unique_lock<mutex> lock(mMutexId);
@@ -597,6 +606,30 @@ Frame::PointCloudT::Ptr Frame::unprojectWorldCloud()
     PointCloudT::Ptr pWorldCloud(new PointCloudT);
     pcl::transformPointCloud(*mpCloud, *pWorldCloud, Twc.matrix());
     return pWorldCloud;
+}
+
+void Frame::setKF()
+{
+    unique_lock<mutex> lock(mMutexId);
+    mbIsKF = true;
+}
+
+bool Frame::isKF()
+{
+    unique_lock<mutex> lock(mMutexId);
+    return mbIsKF;
+}
+
+void Frame::addConnection(Frame::Ptr pFrame)
+{
+    unique_lock<mutex> lock(mMutexConnections);
+    mspConnectedKFs.insert(pFrame);
+}
+
+std::set<Frame::Ptr> Frame::getConnectedKFs()
+{
+    unique_lock<mutex> lock(mMutexConnections);
+    return mspConnectedKFs;
 }
 
 void Frame::addLandmark(Landmark::Ptr pLM, const size_t& i)

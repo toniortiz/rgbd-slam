@@ -3,6 +3,7 @@
 #include "Core/map.h"
 #include "Core/rgbdcamera.h"
 #include "Drawer/mapdrawer.h"
+#include "Drawer/viewer.h"
 #include "Features/matcher.h"
 #include "LoopClosing/loopclosing.h"
 #include "Solver/gicp.h"
@@ -11,7 +12,6 @@
 #include "Solver/posegraph.h"
 #include "Solver/ransac.h"
 #include "Solver/ransacpnp.h"
-#include "Drawer/viewer.h"
 #include "Solver/ricp.h"
 #include "converter.h"
 
@@ -302,6 +302,7 @@ void Tracking::createKeyFrame()
 {
     mpCurFrame->computeBoW(mpVoc);
     mpLastKeyFrame = mpCurFrame;
+    mpLastKeyFrame->setKF();
     mpCurFrame->mpReferenceKF = mpLastKeyFrame;
 
     //    mpLastKeyFrame->createCloud();

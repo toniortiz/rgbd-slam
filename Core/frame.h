@@ -94,6 +94,7 @@ public:
 
     void addLandmark(std::shared_ptr<Landmark> pLM, const size_t& i);
     std::shared_ptr<Landmark> getLandmark(const size_t& i);
+    std::vector<std::shared_ptr<Landmark>> getLandmarks();
 
     int getId();
 
@@ -109,6 +110,15 @@ public:
     Eigen::Quaternionf getOrientation();
     Eigen::Vector4f getOrigin();
     PointCloudT::Ptr unprojectWorldCloud();
+
+    void setKF();
+    bool isKF();
+
+    void addConnection(Frame::Ptr pFrame);
+    std::set<Frame::Ptr> getConnectedKFs();
+
+    int mnBALocalForKF;
+    int mnBAFixedForKF;
 
 public:
     cv::Mat mImColor;
@@ -183,6 +193,8 @@ private:
     cv::Mat mRwc;
     cv::Mat mOw; //==mtwc
 
+    bool mbIsKF;
+
     g2o::VertexSE3* mpVertex = nullptr;
 
     std::mutex mMutexVertex;
@@ -192,6 +204,9 @@ private:
 
     std::mutex mMutexCloud;
     PointCloudT::Ptr mpCloud;
+
+    std::mutex mMutexConnections;
+    std::set<Frame::Ptr> mspConnectedKFs;
 };
 
 #endif
