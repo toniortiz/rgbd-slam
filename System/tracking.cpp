@@ -308,10 +308,10 @@ void Tracking::createKeyFrame()
     mpLastKeyFrame->setKF();
     mpCurFrame->mpReferenceKF = mpLastKeyFrame;
 
-    //    mpLastKeyFrame->createCloud();
-    //    mpLastKeyFrame->passThroughFilter("z", 0.5, 4.0);
-    //    mpLastKeyFrame->downsampleCloud(0.04f);
-    //    mpLastKeyFrame->statisticalFilterCloud(50, 1.0);
+    mpLastKeyFrame->createCloud(6);
+    mpLastKeyFrame->passThroughFilter("z", 0.5, 4.0);
+    mpLastKeyFrame->downsampleCloud(0.04f);
+    mpLastKeyFrame->statisticalFilterCloud(50, 1.0);
 
     mpPoseGraph->insertKeyFrame(mpLastKeyFrame);
 }

@@ -100,7 +100,7 @@ public:
     int getId();
 
     // PointCloud functions
-    void createCloud();
+    void createCloud(int res);
     bool isValidCloud();
     void downsampleCloud(float leaf);
     void statisticalFilterCloud(int k, double stddev);

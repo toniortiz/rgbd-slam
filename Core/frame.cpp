@@ -472,7 +472,7 @@ int Frame::getId()
     return mnId;
 }
 
-void Frame::createCloud()
+void Frame::createCloud(int res)
 {
     unique_lock<mutex> lock(mMutexCloud);
 
@@ -481,7 +481,6 @@ void Frame::createCloud()
 
     mpCloud = boost::make_shared<PointCloudT>();
 
-    int res = 3;
     for (int m = 0; m < mImDepth.rows; m += res) {
         for (int n = 0; n < mImDepth.cols; n += res) {
             const float z = mImDepth.at<float>(m, n);
