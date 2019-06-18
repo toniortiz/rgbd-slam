@@ -114,6 +114,7 @@ Core/intrinsicmatrix.cpp
 Core/frame.cpp
 Core/map.cpp
 Core/landmark.cpp
+Core/GraphNode.cpp
 
 Solver/ricp.cpp
 Solver/icp.cpp

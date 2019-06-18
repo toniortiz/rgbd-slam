@@ -29,6 +29,10 @@ public:
     void shutdown();
 
 private:
+    void drawHorizontalGrid();
+    void drawLine(const float x1, const float y1, const float z1,
+        const float x2, const float y2, const float z2);
+
     std::shared_ptr<MapDrawer> mpMapDrawer;
     std::shared_ptr<Map> mpMap;
 

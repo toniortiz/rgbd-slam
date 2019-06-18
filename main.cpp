@@ -13,7 +13,7 @@
 
 using namespace std;
 
-const string baseDir = "/home/antonio/Documents/M.C.C/Tesis/Dataset/TUM/rgbd_dataset_freiburg1_desk/";
+const string baseDir = "/home/antonio/Documents/M.C.C/Tesis/Dataset/TUM/rgbd_dataset_freiburg1_plant/";
 const string vocDir = "./Vocabulary/voc_TUM_FAST_BRIEF.yml.gz";
 
 /* Available Datasets

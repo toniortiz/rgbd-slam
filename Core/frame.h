@@ -17,6 +17,7 @@
 
 class Extractor;
 class RGBDcamera;
+class GraphNode;
 class Map;
 class Landmark;
 
@@ -163,6 +164,8 @@ public:
     static bool mbInitialComputations;
 
     Frame::Ptr mpReferenceKF;
+
+    std::shared_ptr<GraphNode> mpNode;
 
 private:
     // Undistort keypoints given OpenCV distortion parameters.

@@ -101,6 +101,8 @@ void Viewer::run()
 
         mpMapDrawer->drawCurrentCamera(Twc);
 
+        //drawHorizontalGrid();
+
         if (menuShowVertices || menuShowEdges)
             mpMapDrawer->drawPoseGraph(menuShowVertices, menuShowEdges);
         if (menuShowOctomap)
@@ -182,4 +184,37 @@ void Viewer::shutdown()
 
     if (mRunThread.joinable())
         mRunThread.join();
+}
+
+void Viewer::drawHorizontalGrid()
+{
+    Eigen::Matrix4f origin;
+    origin << 0, 0, 1, 0, -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 1;
+    glPushMatrix();
+    glMultTransposeMatrixf(origin.data());
+
+    glLineWidth(1);
+    glColor3f(0.5, 0.5, 0.5);
+    glBegin(GL_LINES);
+
+    constexpr float interval_ratio = 0.1;
+    constexpr float grid_min = -100.0f * interval_ratio;
+    constexpr float grid_max = 100.0f * interval_ratio;
+
+    for (int x = -10; x <= 10; x += 1) {
+        drawLine(x * 10.0f * interval_ratio, grid_min, 0, x * 10.0f * interval_ratio, grid_max, 0);
+    }
+    for (int y = -10; y <= 10; y += 1) {
+        drawLine(grid_min, y * 10.0f * interval_ratio, 0, grid_max, y * 10.0f * interval_ratio, 0);
+    }
+
+    glEnd();
+
+    glPopMatrix();
+}
+
+void Viewer::drawLine(const float x1, const float y1, const float z1, const float x2, const float y2, const float z2)
+{
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x2, y2, z2);
 }

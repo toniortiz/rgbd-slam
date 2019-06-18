@@ -1,5 +1,6 @@
 #include "frame.h"
 #include "Features/extractor.h"
+#include "GraphNode.h"
 #include "System/converter.h"
 #include "landmark.h"
 #include "rgbdcamera.h"
@@ -38,6 +39,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imDepth, const double& timeSta
     , mTimeStamp(timeStamp)
     , mpCloud(nullptr)
     , mbIsKF(false)
+    , mpNode(nullptr)
 {
     // Frame ID
     mnId = nNextId++;
