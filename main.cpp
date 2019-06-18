@@ -13,7 +13,7 @@
 
 using namespace std;
 
-const string baseDir = "/home/antonio/Documents/M.C.C/Tesis/Dataset/TUM/rgbd_dataset_freiburg3_nostructure_texture_near_withloop/";
+const string baseDir = "/home/antonio/Documents/M.C.C/Tesis/Dataset/TUM/rgbd_dataset_freiburg1_desk/";
 const string vocDir = "./Vocabulary/voc_TUM_FAST_BRIEF.yml.gz";
 
 /* Available Datasets
@@ -30,7 +30,7 @@ int main()
     DatasetType::Ptr dataset(new DatasetType());
     dataset->open(baseDir);
 
-    Extractor::Ptr extractor(new Extractor(Extractor::FAST, Extractor::BRIEF, Extractor::ADAPTIVE));
+    Extractor::Ptr extractor(new Extractor(Extractor::SVO, Extractor::BRIEF, Extractor::NORMAL));
     shared_ptr<DBoW3::Vocabulary> voc(new DBoW3::Vocabulary(vocDir));
     Map::Ptr pMap(new Map());
     Tracking tracker(voc, pMap);

@@ -93,8 +93,7 @@ void PoseGraph::run()
                 Landmark::Ptr pLM = mpCurrentKF->getLandmark(i);
                 if (!pLM)
                     continue;
-
-                if (pLM->observations() > 5)
+                if (pLM->observations() > 4)
                     mpMap->addLandmark(pLM);
             }
         }
@@ -158,6 +157,42 @@ void PoseGraph::createLocalEdges()
         matchLandmarks(pKF, sac.mvInliers);
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
+
+    //    vector<Landmark::Ptr> vpLMs = mpCurrentKF->getLandmarks();
+    //    map<Frame::Ptr, int> KFcounter;
+
+    //    for (Landmark::Ptr pLM : vpLMs) {
+    //        if (!pLM)
+    //            continue;
+
+    //        map<Landmark::KeyFrameID, size_t> obs = pLM->getObservations();
+
+    //        for (auto& [KFid, idx] : obs) {
+    //            Frame::Ptr pKF = mpMap->getKeyFrame(KFid);
+    //            if (!pKF)
+    //                continue;
+    //            if (!pKF->isKF())
+    //                continue;
+    //            if (pKF->getId() == mpCurrentKF->getId())
+    //                continue;
+    //            if (existEdge(mpCurrentKF->getId(), pKF->getId()))
+    //                continue;
+
+    //            KFcounter[pKF]++;
+    //        }
+    //    }
+
+    //    if (KFcounter.empty())
+    //        return;
+
+    //    int th = 1;
+
+    //    for (auto& [pKF, n] : KFcounter) {
+    //        if (n >= th) {
+    //            cv::Mat Tij = mpCurrentKF->getPose() * pKF->getPoseInverse();
+    //            createEdge(pKF, Converter::toIsometry3d(Converter::toMatrix4f(Tij).cast<double>()));
+    //        }
+    //    }
 }
 
 void PoseGraph::createRandomEdges(int n)

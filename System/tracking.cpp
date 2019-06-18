@@ -191,17 +191,20 @@ void Tracking::trackReference()
         Landmark::Ptr pLM = pRefFrame->getLandmark(inlier.queryIdx);
 
         if (!pLM) {
-            cv::Mat Xw = mpCurFrame->unprojectWorld(inlier.trainIdx);
-            pLM = make_shared<Landmark>(Xw, mpMap, mpCurFrame, inlier.trainIdx);
-            pLM->addObservation(mpCurFrame->getId(), inlier.trainIdx);
-            pLM->addObservation(pRefFrame->getId(), inlier.queryIdx);
-            pLM->setColor(mpCurFrame->mvKeysColor[inlier.trainIdx]);
+            if (mpCurFrame->mvKeys3Dc[inlier.trainIdx].z > 0 && pRefFrame->mvKeys3Dc[inlier.queryIdx].z > 0) {
+                cv::Mat Xw = mpCurFrame->unprojectWorld(inlier.trainIdx);
+                pLM = make_shared<Landmark>(Xw, mpMap, mpCurFrame, inlier.trainIdx);
+                pLM->addObservation(mpCurFrame->getId(), inlier.trainIdx);
+                pLM->addObservation(pRefFrame->getId(), inlier.queryIdx);
+                pLM->setColor(mpCurFrame->mvKeysColor[inlier.trainIdx]);
 
-            mpCurFrame->addLandmark(pLM, inlier.trainIdx);
-            pRefFrame->addLandmark(pLM, inlier.queryIdx);
+                mpCurFrame->addLandmark(pLM, inlier.trainIdx);
+                pRefFrame->addLandmark(pLM, inlier.queryIdx);
+            }
         } else {
             mpCurFrame->addLandmark(pLM, inlier.trainIdx);
             pLM->addObservation(mpCurFrame->getId(), inlier.trainIdx);
+            pLM->addObservation(pRefFrame->getId(), inlier.queryIdx);
         }
     }
 
