@@ -157,18 +157,6 @@ void PoseGraph::createLocalEdges()
         if (!sac.compute(pKFi, mpCurrentKF, vMatches, false))
             continue;
 
-        if (sac.rmse >= 1.0f) {
-            Eigen::Matrix4f guess = sac.mT21;
-            Solver::Ptr solver(new Gicp(pKFi, mpCurrentKF, sac.mvInliers, guess));
-            static_cast<Gicp&>(*solver).setMaxCorrespondenceDistance(0.07);
-            static_cast<Gicp&>(*solver).setMaximumIterations(10);
-            static_cast<Gicp&>(*solver).mbUpdate = false;
-
-            vector<cv::DMatch> vInliers;
-            if (!solver->compute(vInliers))
-                continue;
-        }
-
         matchLandmarks(pKFi, sac.mvInliers);
         createEdge(pKFi, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
@@ -294,18 +282,6 @@ bool PoseGraph::detectLoop()
         RIcp sac(200, th, 3.0f, 4);
         if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
             continue;
-
-        if (sac.rmse >= 1.0f) {
-            Eigen::Matrix4f guess = sac.mT21;
-            Solver::Ptr solver(new Gicp(pKF, mpCurrentKF, sac.mvInliers, guess));
-            static_cast<Gicp&>(*solver).setMaxCorrespondenceDistance(0.07);
-            static_cast<Gicp&>(*solver).setMaximumIterations(10);
-            static_cast<Gicp&>(*solver).mbUpdate = false;
-
-            vector<cv::DMatch> vInliers;
-            if (!solver->compute(vInliers))
-                continue;
-        }
 
         matchLandmarks(pKF, sac.mvInliers);
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
