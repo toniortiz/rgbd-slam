@@ -5,7 +5,9 @@ using namespace std;
 
 Gicp::Gicp(const Frame::Ptr F1, Frame::Ptr F2, const vector<cv::DMatch>& matches, Eigen::Matrix4f& guess)
     : Solver(F1, F2, matches)
+    , mbUpdate(true)
     , mGuess(guess)
+
 {
     mGicp.setMaximumIterations(15);
     mGicp.setMaxCorrespondenceDistance(0.08);
@@ -22,10 +24,11 @@ bool Gicp::compute(vector<cv::DMatch>& inliers)
         return false;
 
     createCloudsFromMatches();
-    Eigen::Matrix4f T = align();
+    mT = align();
 
-    if (!T.isIdentity()) {
-        mF2->setPose(Converter::toMat<float, 4, 4>(T) * mF1->getPose());
+    if (!mT.isIdentity()) {
+        if (mbUpdate)
+            mF2->setPose(Converter::toMat<float, 4, 4>(mT) * mF1->getPose());
         return true;
     } else
         return false;

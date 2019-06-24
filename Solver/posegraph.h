@@ -36,6 +36,8 @@ public:
 
     void optimize(const int& iterations = 10);
 
+    void nearestNodes(std::shared_ptr<Frame> pKF, std::vector<std::shared_ptr<Frame>>& candidates);
+
     void requestFinish();
 
     bool isFinished();
@@ -51,7 +53,6 @@ protected:
     bool detectLoop();
 
     void createLocalEdges();
-    void createRandomEdges(int n);
 
     bool existEdge(const int v1, const int v2);
 

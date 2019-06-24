@@ -153,31 +153,14 @@ void Tracking::trackReference()
         b = sac.compute(pRefFrame, mpCurFrame, vMatches);
     }
 
-    if (sac.rmse > 0.7f) {
+    if (sac.rmse >= 1.0f) {
         Eigen::Matrix4f guess = sac.mT21;
         Solver::Ptr solver(new Gicp(pRefFrame, mpCurFrame, sac.mvInliers, guess));
-        static_cast<Gicp&>(*solver).setMaximumIterations(8);
+        static_cast<Gicp&>(*solver).setMaxCorrespondenceDistance(0.07);
+        static_cast<Gicp&>(*solver).setMaximumIterations(10);
         b = solver->compute(vInliers);
     }
     vInliers = sac.mvInliers;
-
-    //    if (ransac->Compute(pF1, pF2, vMatches12)) {
-    //        T = ransac->GetTransformation();
-    //        float rmse = ransac->GetRMSE();
-    //        mStatus = true;
-
-    //        if (rmse * 10.0f > mMiu2) {
-    //            if (icp->ComputeSubset(pF1, pF2, ransac->GetMatches()))
-    //                T = icp->GetTransformation();
-    //        } else if (rmse * 10.0f > mMiu1) {
-    //            if (icp->Compute(pF1, pF2, ransac->GetMatches(), T))
-    //                T = icp->GetTransformation();
-    //        }
-
-    //    } else {
-    //        T = Eigen::Matrix4f::Identity();
-    //        mStatus = false;
-    //    }
 
     {
         unique_lock<mutex> lock(mMutexStatistics);
@@ -212,8 +195,6 @@ void Tracking::trackReference()
         recover();
 
     /*
-
-
     Solver::Ptr ransac(new Ransac(pRefFrame, mpCurFrame, vMatches, params));
     bool b = ransac->compute(vInliers);
 

@@ -31,7 +31,11 @@ public:
     void setTransformationEpsilon(double epsilon);
     void setUseReciprocalCorrespondences(bool flag);
 
+    bool mbUpdate;
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    Eigen::Matrix4f mT;
 
 private:
     void createCloudsFromMatches();

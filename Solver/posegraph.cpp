@@ -7,6 +7,7 @@
 #include "System/converter.h"
 #include "System/random.h"
 #include "System/tracking.h"
+#include "gicp.h"
 #include <Eigen/StdVector>
 #include <g2o/core/block_solver.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
@@ -19,6 +20,10 @@
 #include <g2o/types/icp/types_icp.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
 #include <mutex>
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <unistd.h>
 
 using namespace std;
@@ -40,7 +45,7 @@ PoseGraph::PoseGraph(Tracking* pTracker, LoopDetector::Ptr pLooper, Map::Ptr pMa
     , mpMap(pMap)
     , mnKFsFromLastLoop(0)
 {
-    CSparseSolver* linearSolver = new CSparseSolver();
+    EigenSolver* linearSolver = new EigenSolver();
     linearSolver->setBlockOrdering(false);
     BlockSolver* solver_ptr = new BlockSolver(linearSolver);
 
@@ -70,23 +75,23 @@ void PoseGraph::run()
 
                 mpMap->informNewBigChange();
             }
-            // Local optimization
-            else {
-                if (mpMap->keyFramesInMap() > 2) {
-                    set<Frame::Ptr> vpConKFs = mpCurrentKF->getConnectedKFs();
-                    vector<Frame::Ptr> vpKFs = mpMap->getAllKeyFrames();
-                    for (Frame::Ptr pKF : vpKFs)
-                        pKF->fixVertex(true);
-                    for (Frame::Ptr pKF : vpConKFs)
-                        pKF->fixVertex(false);
+            //            // Local optimization
+            //            else {
+            //                if (mpMap->keyFramesInMap() > 2) {
+            //                    set<Frame::Ptr> vpConKFs = mpCurrentKF->getConnectedKFs();
+            //                    vector<Frame::Ptr> vpKFs = mpMap->getAllKeyFrames();
+            //                    for (Frame::Ptr pKF : vpKFs)
+            //                        pKF->fixVertex(true);
+            //                    for (Frame::Ptr pKF : vpConKFs)
+            //                        pKF->fixVertex(false);
 
-                    mOptimizer.initializeOptimization();
-                    mOptimizer.optimize(10);
+            //                    mOptimizer.initializeOptimization();
+            //                    mOptimizer.optimize(10);
 
-                    for (Frame::Ptr pKF : vpConKFs)
-                        pKF->correctPose();
-                }
-            }
+            //                    for (Frame::Ptr pKF : vpConKFs)
+            //                        pKF->correctPose();
+            //                }
+            //            }
 
             // Add reliable landmarks to map
             for (size_t i = 0; i < mpCurrentKF->N; ++i) {
@@ -127,102 +132,76 @@ void PoseGraph::updateGraph()
     }
 
     createLocalEdges();
-    createRandomEdges(15);
 }
 
 void PoseGraph::createLocalEdges()
 {
-    int nKFs = mpMap->keyFramesInMap();
+    static const int matchesTh = 40;
 
-    for (int i = nKFs - 1; i > nKFs - 10; i--) {
-        if (i < 0)
-            break;
-        Frame::Ptr pKF = mpMap->getKeyFrameAt(i);
-        if (pKF == mpCurrentKF)
+    vector<Frame::Ptr> candidates;
+    nearestNodes(mpCurrentKF, candidates);
+
+    for (Frame::Ptr pKFi : candidates) {
+        if (pKFi == mpCurrentKF)
             continue;
-
-        if (existEdge(mpCurrentKF->getId(), pKF->getId()))
+        if (existEdge(mpCurrentKF->getId(), pKFi->getId()))
             continue;
 
         Matcher matcher(0.9f);
         vector<cv::DMatch> vMatches;
-        matcher.match(pKF, mpCurrentKF, vMatches);
-        if (vMatches.size() < 20)
+        matcher.match(pKFi, mpCurrentKF, vMatches);
+        if (vMatches.size() < matchesTh)
             continue;
 
-        RIcp sac(200, 20, 3.0f, 4);
-        if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
+        RIcp sac(200, matchesTh, 3.0f, 4);
+        if (!sac.compute(pKFi, mpCurrentKF, vMatches, false))
             continue;
 
-        matchLandmarks(pKF, sac.mvInliers);
-        createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
+        if (sac.rmse >= 1.0f) {
+            Eigen::Matrix4f guess = sac.mT21;
+            Solver::Ptr solver(new Gicp(pKFi, mpCurrentKF, sac.mvInliers, guess));
+            static_cast<Gicp&>(*solver).setMaxCorrespondenceDistance(0.07);
+            static_cast<Gicp&>(*solver).setMaximumIterations(10);
+            static_cast<Gicp&>(*solver).mbUpdate = false;
+
+            vector<cv::DMatch> vInliers;
+            if (!solver->compute(vInliers))
+                continue;
+        }
+
+        matchLandmarks(pKFi, sac.mvInliers);
+        createEdge(pKFi, Converter::toIsometry3d(sac.mT21.cast<double>()));
     }
-
-    //    vector<Landmark::Ptr> vpLMs = mpCurrentKF->getLandmarks();
-    //    map<Frame::Ptr, int> KFcounter;
-
-    //    for (Landmark::Ptr pLM : vpLMs) {
-    //        if (!pLM)
-    //            continue;
-
-    //        map<Landmark::KeyFrameID, size_t> obs = pLM->getObservations();
-
-    //        for (auto& [KFid, idx] : obs) {
-    //            Frame::Ptr pKF = mpMap->getKeyFrame(KFid);
-    //            if (!pKF)
-    //                continue;
-    //            if (!pKF->isKF())
-    //                continue;
-    //            if (pKF->getId() == mpCurrentKF->getId())
-    //                continue;
-    //            if (existEdge(mpCurrentKF->getId(), pKF->getId()))
-    //                continue;
-
-    //            KFcounter[pKF]++;
-    //        }
-    //    }
-
-    //    if (KFcounter.empty())
-    //        return;
-
-    //    int th = 1;
-
-    //    for (auto& [pKF, n] : KFcounter) {
-    //        if (n >= th) {
-    //            cv::Mat Tij = mpCurrentKF->getPose() * pKF->getPoseInverse();
-    //            createEdge(pKF, Converter::toIsometry3d(Converter::toMatrix4f(Tij).cast<double>()));
-    //        }
-    //    }
 }
 
-void PoseGraph::createRandomEdges(int n)
+void PoseGraph::nearestNodes(Frame::Ptr pKF, vector<Frame::Ptr>& candidates)
 {
-    int nKFs = mpMap->keyFramesInMap();
+    // 40 cm
+    static const double radius = 0.40;
 
-    // Try to add an edge with random KFs
-    for (int i = 0; i < n; i++) {
-        int index = Random::randomInt(0, nKFs - 1);
+    vector<Frame::Ptr> vpKFs = mpMap->getAllKeyFrames();
 
-        Frame::Ptr pKF = mpMap->getKeyFrameAt(index);
-        if (pKF == mpCurrentKF)
-            continue;
+    cv::Mat Ow = pKF->getCameraCenter();
+    pcl::PointXYZ searchPoint(Ow.at<float>(0), Ow.at<float>(1), Ow.at<float>(2));
 
-        if (existEdge(mpCurrentKF->getId(), pKF->getId()))
-            continue;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr KFpoints(new pcl::PointCloud<pcl::PointXYZ>());
 
-        Matcher matcher(0.9f);
-        vector<cv::DMatch> vMatches;
-        matcher.match(pKF, mpCurrentKF, vMatches);
-        if (vMatches.size() < 20)
-            continue;
-
-        RIcp sac(200, 20, 3.0f, 4);
-        if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
-            continue;
-
-        matchLandmarks(pKF, sac.mvInliers);
-        createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
+    for (Frame::Ptr pKFi : vpKFs) {
+        cv::Mat Owi = pKFi->getCameraCenter();
+        pcl::PointXYZ p(Owi.at<float>(0), Owi.at<float>(1), Owi.at<float>(2));
+        KFpoints->points.push_back(p);
     }
+
+    vector<int> indices;
+    map<int, Frame::Ptr> ids;
+    vector<float> distances;
+
+    pcl::KdTree<pcl::PointXYZ>::Ptr kdtree(new pcl::KdTreeFLANN<pcl::PointXYZ>(false));
+    kdtree->setInputCloud(KFpoints);
+    kdtree->radiusSearch(searchPoint, radius, indices, distances);
+
+    for (size_t i = 0; i < indices.size(); ++i)
+        candidates.push_back(vpKFs[indices[i]]);
 }
 
 void PoseGraph::createNode()
@@ -315,6 +294,18 @@ bool PoseGraph::detectLoop()
         RIcp sac(200, th, 3.0f, 4);
         if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
             continue;
+
+        if (sac.rmse >= 1.0f) {
+            Eigen::Matrix4f guess = sac.mT21;
+            Solver::Ptr solver(new Gicp(pKF, mpCurrentKF, sac.mvInliers, guess));
+            static_cast<Gicp&>(*solver).setMaxCorrespondenceDistance(0.07);
+            static_cast<Gicp&>(*solver).setMaximumIterations(10);
+            static_cast<Gicp&>(*solver).mbUpdate = false;
+
+            vector<cv::DMatch> vInliers;
+            if (!solver->compute(vInliers))
+                continue;
+        }
 
         matchLandmarks(pKF, sac.mvInliers);
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
