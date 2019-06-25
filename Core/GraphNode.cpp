@@ -1,11 +1,11 @@
 #include "GraphNode.h"
-#include "frame.h"
-#include "landmark.h"
-#include "map.h"
+#include "Frame.h"
+#include "Landmark.h"
+#include "Map.h"
 
 using namespace std;
 
-GraphNode::GraphNode(Frame::Ptr pKF, MapPtr pMap, const bool spanningParentIsNotSet)
+GraphNode::GraphNode(KeyFramePtr pKF, MapPtr pMap, const bool spanningParentIsNotSet)
     : mpOwnerKF(pKF)
     , mpMap(pMap)
     , mbSpanningTreeIsNotSet(spanningParentIsNotSet)
@@ -121,7 +121,7 @@ void GraphNode::updateConnections()
         mvpOrderedKFs = vOrderedKFs;
         mvOrderedWeights = vOrderedWeights;
 
-        if (mbSpanningTreeIsNotSet && mpOwnerKF->getId() != 0) {
+        if (mbSpanningTreeIsNotSet && mpOwnerKF->id() != 0) {
             mpParent = pKFmax;
             mpParent->mpNode->addChild(mpOwnerKF);
             mbSpanningTreeIsNotSet = false;
@@ -194,7 +194,7 @@ vector<GraphNode::KeyFramePtr> GraphNode::getBestCovisiblesByWeight(const unsign
     }
 }
 
-unsigned int GraphNode::getWeight(GraphNode::KeyFramePtr pKF) const
+unsigned int GraphNode::getWeight(KeyFramePtr pKF) const
 {
     lock_guard<mutex> lock(mMutexNode);
 
@@ -204,7 +204,7 @@ unsigned int GraphNode::getWeight(GraphNode::KeyFramePtr pKF) const
         return 0;
 }
 
-void GraphNode::setParent(GraphNode::KeyFramePtr pParent)
+void GraphNode::setParent(KeyFramePtr pParent)
 {
     lock_guard<mutex> lock(mMutexNode);
     mpParent = pParent;
@@ -216,20 +216,20 @@ GraphNode::KeyFramePtr GraphNode::getParent() const
     return mpParent;
 }
 
-void GraphNode::changeParent(GraphNode::KeyFramePtr pNewParent)
+void GraphNode::changeParent(KeyFramePtr pNewParent)
 {
     lock_guard<mutex> lock(mMutexNode);
     mpParent = pNewParent;
     pNewParent->mpNode->addChild(mpOwnerKF);
 }
 
-void GraphNode::addChild(GraphNode::KeyFramePtr pChild)
+void GraphNode::addChild(KeyFramePtr pChild)
 {
     lock_guard<mutex> lock(mMutexNode);
     mspChildren.insert(pChild);
 }
 
-void GraphNode::eraseChild(GraphNode::KeyFramePtr pChild)
+void GraphNode::eraseChild(KeyFramePtr pChild)
 {
     lock_guard<mutex> lock(mMutexNode);
     mspChildren.erase(pChild);
@@ -245,16 +245,15 @@ set<GraphNode::KeyFramePtr> GraphNode::getChildren() const
     return mspChildren;
 }
 
-bool GraphNode::hasChild(GraphNode::KeyFramePtr pKF) const
+bool GraphNode::hasChild(KeyFramePtr pKF) const
 {
     lock_guard<mutex> lock(mMutexNode);
     return static_cast<bool>(mspChildren.count(pKF));
 }
 
-void GraphNode::addLoopEdge(GraphNode::KeyFramePtr pLoopKF)
+void GraphNode::addLoopEdge(KeyFramePtr pLoopKF)
 {
     lock_guard<mutex> lock(mMutexNode);
-    //mpOwnerKF->setNotErease();
     mspLoopEdges.insert(pLoopKF);
 }
 

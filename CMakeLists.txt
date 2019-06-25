@@ -94,47 +94,48 @@ include_directories(${PROJECT_SOURCE_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(${PROJECT_NAME} SHARED
-System/tracking.cpp
-System/converter.cpp
-System/utility.cpp
-System/random.cpp
+    System/Tracking.cpp
+    System/Converter.cpp
+    System/Utility.cpp
+    System/Random.cpp
 
-Features/extractor.cpp
-Features/orbextractor.cpp
-Features/matcher.cpp
-Features/extractornode.cpp
-Features/svoextractor.cpp
-Features/detectoradjuster.cpp
-Features/statefulfeaturedetector.cpp
-Features/videodynamicadaptedfeaturedetector.cpp
-Features/videogridadaptedfeaturedetector.cpp
+    Features/Extractor.cpp
+    Features/ORBextractor.cpp
+    Features/Matcher.cpp
+    Features/ExtractorNode.cpp
+    Features/SVOextractor.cpp
+    Features/DetectorAdjuster.cpp
+    Features/StatefulFeatureDetector.cpp
+    Features/VideoDynamicAdaptedFeatureDetector.cpp
+    Features/VideoGridAdaptedFeatureDetector.cpp
 
-Core/rgbdcamera.cpp
-Core/intrinsicmatrix.cpp
-Core/frame.cpp
-Core/map.cpp
-Core/landmark.cpp
-Core/GraphNode.cpp
+    Core/RGBDcamera.cpp
+    Core/IntrinsicMatrix.cpp
+    Core/Frame.cpp
+    Core/Map.cpp
+    Core/Landmark.cpp
+    Core/GraphNode.cpp
 
-Solver/ricp.cpp
-Solver/icp.cpp
-Solver/posegraph.cpp
-Solver/ransacpnp.cpp
-Solver/solver.cpp
-Solver/pnpsolver.cpp
-Solver/ransac.cpp
-Solver/gicp.cpp
+    Solver/SolverSE3.cpp
+    Solver/Icp.cpp
+    Solver/PoseGraph.cpp
+    Solver/PnPRansac.cpp
+    Solver/Solver.cpp
+    Solver/PnPSolver.cpp
+    Solver/Ransac.cpp
+    Solver/Gicp.cpp
+    Solver/PnP.cpp
 
-LoopClosing/loopclosing.cpp
+    PlaceRecognition/LoopDetector.cpp
 
-Drawer/viewer.cpp
-Drawer/mapdrawer.cpp
-Drawer/octomapdrawer.cpp
+    Drawer/Viewer.cpp
+    Drawer/MapDrawer.cpp
+    Drawer/OctomapDrawer.cpp
 
-IO/dataset.cpp
-IO/datasettumrgbd.cpp
-IO/dataseticlrgbd.cpp
-IO/datasetcorbsrgbd.cpp
+    IO/Dataset.cpp
+    IO/DatasetTUM.cpp
+    IO/DatasetICL.cpp
+    IO/DatasetCORBS.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

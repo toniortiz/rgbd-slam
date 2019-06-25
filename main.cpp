@@ -1,13 +1,11 @@
-#include "Core/frame.h"
-#include "Core/map.h"
-#include "Core/rgbdcamera.h"
-#include "Features/extractor.h"
-#include "IO/datasetcorbsrgbd.h"
-#include "IO/dataseticlrgbd.h"
-#include "IO/datasettumrgbd.h"
-#include "System/random.h"
-#include "System/tracking.h"
-#include "System/utility.h"
+#include "Core/Frame.h"
+#include "Core/Map.h"
+#include "Features/Extractor.h"
+#include "IO/DatasetCORBS.h"
+#include "IO/DatasetICL.h"
+#include "IO/DatasetTUM.h"
+#include "System/Random.h"
+#include "System/Tracking.h"
 #include <iostream>
 #include <opencv2/core/core.hpp>
 
