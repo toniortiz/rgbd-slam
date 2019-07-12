@@ -75,10 +75,10 @@ vector<LoopDetector::FramePtr> LoopDetector::obtainCandidates(const FramePtr pKF
         }
     }
 
-    //    if (possibleLoops.size() > 5) {
-    //        sort(possibleLoops.begin(), possibleLoops.end(), Frame::CompareBoWscore);
-    //        return vector<Frame::Ptr>(possibleLoops.begin(), possibleLoops.begin() + 5);
-    //    }
+        if (possibleLoops.size() > 5) {
+            sort(possibleLoops.begin(), possibleLoops.end(), Frame::CompareBoWscore);
+            return vector<Frame::Ptr>(possibleLoops.begin(), possibleLoops.begin() + 5);
+        }
 
     return possibleLoops;
 }

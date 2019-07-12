@@ -403,7 +403,7 @@ cv::Mat Frame::drawTackedPoints()
     cv::cvtColor(mImGray, out, cv::COLOR_GRAY2BGR);
 
     for (size_t i = 0; i < N; ++i) {
-        if (getLandmark(i)) {
+        if (isValidObs(i)) {
             const cv::KeyPoint& kp = mvKeys[i];
             cv::circle(out, kp.pt, 4 * (kp.octave + 1), cv::Scalar(0, 255, 0), 1);
         }

@@ -91,15 +91,6 @@ void PoseGraph::run()
             //                        pKF->correctPose();
             //                }
             //            }
-
-            // Add reliable landmarks to map
-            for (size_t i = 0; i < mpCurrentKF->N; ++i) {
-                Landmark::Ptr pLM = mpCurrentKF->getLandmark(i);
-                if (!pLM)
-                    continue;
-                if (pLM->observations() > 4)
-                    mpMap->addLandmark(pLM);
-            }
         }
 
         if (checkFinish())
@@ -157,7 +148,6 @@ void PoseGraph::createLocalEdges()
         if (!sac.compute(pKFi, mpCurrentKF, vMatches, false))
             continue;
 
-        matchLandmarks(pKFi, sac.mvInliers);
         Eigen::Matrix4d md = sac.mT21.cast<double>();
         g2o::SE3Quat q(md.block<3, 3>(0, 0), md.col(3).head<3>());
         createEdge(pKFi, q);
@@ -283,7 +273,6 @@ bool PoseGraph::detectLoop()
         if (!sac.compute(pKF, mpCurrentKF, vMatches, false))
             continue;
 
-        matchLandmarks(pKF, sac.mvInliers);
         createEdge(pKF, Converter::toIsometry3d(sac.mT21.cast<double>()));
 
         {
@@ -389,33 +378,6 @@ bool PoseGraph::existEdge(const int v1, const int v2)
 
     unique_lock<mutex> lock(mMutexOptimizer);
     return mEdges.find(e1) != mEdges.end() || mEdges.find(e2) != mEdges.end();
-}
-
-void PoseGraph::matchLandmarks(Frame::Ptr pKF, vector<cv::DMatch>& inliers)
-{
-    for (auto& inlier : inliers) {
-        size_t queryIdx = static_cast<size_t>(inlier.queryIdx);
-        size_t trainIdx = static_cast<size_t>(inlier.trainIdx);
-        Landmark::Ptr pLM = pKF->getLandmark(queryIdx);
-        if (!pLM) {
-            pLM = mpCurrentKF->getLandmark(trainIdx);
-            if (!pLM) {
-                cv::Mat Xw = mpCurrentKF->unprojectWorld(trainIdx);
-                pLM = make_shared<Landmark>(Xw, mpMap, mpCurrentKF, trainIdx);
-                pLM->addObservation(mpCurrentKF->id(), trainIdx);
-                pLM->addObservation(pKF->id(), queryIdx);
-                pLM->setColor(mpCurrentKF->mvKeysColor[trainIdx]);
-                mpCurrentKF->addLandmark(pLM, trainIdx);
-                pKF->addLandmark(pLM, queryIdx);
-            } else {
-                pKF->addLandmark(pLM, queryIdx);
-                pLM->addObservation(pKF->id(), queryIdx);
-            }
-        } else {
-            mpCurrentKF->addLandmark(pLM, trainIdx);
-            pLM->addObservation(mpCurrentKF->id(), trainIdx);
-        }
-    }
 }
 
 void PoseGraph::requestFinish()

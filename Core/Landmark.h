@@ -9,33 +9,31 @@
 #include <opencv2/core/core.hpp>
 
 class Frame;
-class Map;
 
 // Represent a point in the world
 class Landmark {
 public:
     SMART_POINTER_TYPEDEFS(Landmark);
 
-    typedef int KeyFrameID;
+    typedef std::shared_ptr<Frame> KeyFramePtr;
 
 public:
-    Landmark(const cv::Mat& Pos, std::shared_ptr<Map> pMap, std::shared_ptr<Frame> frame, const size_t& idxF);
+    Landmark();
+    Landmark(const cv::Mat& Pos, KeyFramePtr frame, const size_t& idxF);
+
+    static Landmark::Ptr create();
 
     void setWorldPos(const cv::Mat& Pos);
     cv::Mat getWorldPos();
 
-    cv::Mat getNormal();
-    KeyFrameID getReferenceKeyFrameId();
+    std::map<KeyFramePtr, size_t> getObservations();
+    std::list<std::pair<KeyFramePtr, size_t>> getObservationsList();
 
-    std::map<KeyFrameID, size_t> getObservations();
-    std::list<std::pair<KeyFrameID, size_t>> getObservationsList();
-    int observations();
+    void addObservation(KeyFramePtr pKF, size_t obsId);
+    void eraseObservation(KeyFramePtr pKF);
 
-    void addObservation(KeyFrameID id, size_t obsId);
-    void eraseObservation(KeyFrameID id);
-
-    int getIndexInKeyFrame(KeyFrameID id);
-    bool isInKeyFrame(KeyFrameID id);
+    int getIndexInKeyFrame(KeyFramePtr pKF);
+    bool isInKeyFrame(KeyFramePtr pKF);
 
     cv::Vec3b getColor();
     void setColor(const cv::Vec3b& color);
@@ -43,9 +41,11 @@ public:
     void replace(Landmark::Ptr pMP);
     Landmark::Ptr getReplaced();
 
+    void setDescriptor(cv::Mat& desc);
     cv::Mat getDescriptor();
 
-    void updateNormalAndDepth();
+    int id();
+    int obs();
 
     bool operator==(const Landmark& pLM) const;
 
@@ -63,18 +63,10 @@ protected:
     cv::Vec3b mColor;
 
     // Keyframes observing the point and associated index in keyframe
-    std::map<KeyFrameID, size_t> mObservations;
-
-    // Mean viewing direction
-    cv::Mat mNormalVector;
+    std::map<KeyFramePtr, size_t> mObservations;
 
     // Best descriptor to fast matching
     cv::Mat mDescriptor;
-
-    // Reference KeyFrame
-    KeyFrameID mnRefKFid;
-
-    std::shared_ptr<Map> mpMap;
 
     std::mutex mMutexPos;
     std::mutex mMutexFeatures;

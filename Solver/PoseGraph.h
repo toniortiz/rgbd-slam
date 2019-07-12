@@ -56,8 +56,6 @@ protected:
 
     bool existEdge(const int v1, const int v2);
 
-    void matchLandmarks(std::shared_ptr<Frame> pKF, std::vector<cv::DMatch>& inliers);
-
     bool checkNewKeyFrames();
 
     bool checkFinish();

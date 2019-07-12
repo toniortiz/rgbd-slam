@@ -65,9 +65,8 @@ void GraphNode::updateConnections()
         // if (pLM->isBad())
         //  continue;
 
-        const map<Landmark::KeyFrameID, size_t> obs = pLM->getObservations();
-        for (auto& [KFid, idx] : obs) {
-            KeyFramePtr pKF = mpMap->getKeyFrame(KFid);
+        const map<Frame::Ptr, size_t> obs = pLM->getObservations();
+        for (auto& [pKF, idx] : obs) {
             if (!pKF)
                 continue;
             if (!pKF->isKF())

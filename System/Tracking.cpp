@@ -34,17 +34,6 @@ Tracking::Tracking(shared_ptr<DBoW3::Vocabulary> pVoc, Map::Ptr pMap)
     // Launch viewer thread
     mpMapDrawer = make_shared<MapDrawer>(pMap, mpPoseGraph);
     mpViewer = make_shared<Viewer>(mpMapDrawer, pMap, this);
-
-    mParams.verbose = 0;
-    mParams.errorVersionVO = 0;
-    mParams.errorVersionMap = 0;
-    mParams.inlierThresholdEuclidean = 0.04;
-    mParams.inlierThresholdReprojection = 2.0;
-    mParams.inlierThresholdMahalanobis = 0.0002;
-    mParams.minimalInlierRatioThreshold = 0.2;
-    mParams.minimalNumberOfMatches = 15;
-    mParams.usedPairs = 3;
-    mParams.errorVersion = Ransac::EUCLIDEAN_ERROR;
 }
 
 cv::Mat Tracking::track(shared_ptr<Frame> newFrame)
@@ -112,8 +101,8 @@ void Tracking::initialize()
     for (size_t i = 0; i < mpCurFrame->N; ++i) {
         if (mpCurFrame->mvKeys3Dc[i].z > 0) {
             cv::Mat Xw = mpCurFrame->unprojectWorld(i);
-            Landmark::Ptr pLM(new Landmark(Xw, mpMap, mpCurFrame, i));
-            pLM->addObservation(mpCurFrame->id(), i);
+            Landmark::Ptr pLM(new Landmark(Xw, mpCurFrame, i));
+            pLM->addObservation(mpCurFrame, i);
             pLM->setColor(mpCurFrame->mvKeysColor[i]);
 
             mpMap->addLandmark(pLM);
@@ -169,55 +158,8 @@ void Tracking::visualOdometry()
         mnMeanInliers = mnAcumInliers / mpCurFrame->id();
     }
 
-    // Propagate Landmarks
-    for (auto& inlier : sac.mvInliers) {
-        Landmark::Ptr pLM = pRefFrame->getLandmark(inlier.queryIdx);
-
-        if (!pLM) {
-            if (mpCurFrame->mvKeys3Dc[inlier.trainIdx].z > 0 && pRefFrame->mvKeys3Dc[inlier.queryIdx].z > 0) {
-                cv::Mat Xw = mpCurFrame->unprojectWorld(inlier.trainIdx);
-                pLM = make_shared<Landmark>(Xw, mpMap, mpCurFrame, inlier.trainIdx);
-                pLM->addObservation(mpCurFrame->id(), inlier.trainIdx);
-                pLM->addObservation(pRefFrame->id(), inlier.queryIdx);
-                pLM->setColor(mpCurFrame->mvKeysColor[inlier.trainIdx]);
-
-                mpCurFrame->addLandmark(pLM, inlier.trainIdx);
-                pRefFrame->addLandmark(pLM, inlier.queryIdx);
-            }
-        } else {
-            mpCurFrame->addLandmark(pLM, inlier.trainIdx);
-            pLM->addObservation(mpCurFrame->id(), inlier.trainIdx);
-            pLM->addObservation(pRefFrame->id(), inlier.queryIdx);
-        }
-    }
-
     if (!b)
         recover();
-
-    /*
-    Solver::Ptr ransac(new Ransac(pRefFrame, mpCurFrame, vMatches, params));
-    bool b = ransac->compute(vInliers);
-
-    if (!b) {
-        cout << "Match with second ref" << endl;
-        vMatches.clear();
-        pRefFrame = mpRefFrame.second;
-        matcher.match(pRefFrame, mpCurFrame, vMatches);
-
-        ransac.reset(new Ransac(pRefFrame, mpCurFrame, vMatches, params));
-        b = ransac->compute(vInliers);
-    }
-
-    {
-        unique_lock<mutex> lock(mMutexStatistics);
-        mnInliers = vInliers.size();
-        mnAcumInliers += vInliers.size();
-        mnMeanInliers = mnAcumInliers / mpCurFrame->getId();
-    }
-
-    if (!b)
-        recover();
-*/
 }
 
 bool Tracking::correct()

@@ -1,26 +1,30 @@
 #include "Landmark.h"
 #include "Features/Matcher.h"
 #include "Frame.h"
-#include "Map.h"
 
 using namespace std;
 
 int Landmark::nNextId = 0;
 mutex Landmark::mGlobalMutex;
 
-Landmark::Landmark(const cv::Mat& Pos, Map::Ptr pMap, Frame::Ptr frame, const size_t& idxF)
+Landmark::Landmark(const cv::Mat& Pos, Frame::Ptr frame, const size_t& idxF)
     : nObs(0)
-    , mnRefKFid(frame->id())
-    , mpMap(pMap)
 {
     Pos.copyTo(mWorldPos);
-    cv::Mat Ow = frame->getCameraCenter();
-    mNormalVector = mWorldPos - Ow;
-    mNormalVector = mNormalVector / cv::norm(mNormalVector);
-
     frame->mDescriptors.row(idxF).copyTo(mDescriptor);
 
     mnId = nNextId++;
+}
+
+Landmark::Landmark()
+    : nObs(0)
+{
+}
+
+Landmark::Ptr Landmark::create()
+{
+    Landmark::Ptr pLM(new Landmark());
+    return pLM;
 }
 
 void Landmark::setWorldPos(const cv::Mat& Pos)
@@ -36,58 +40,37 @@ cv::Mat Landmark::getWorldPos()
     return mWorldPos.clone();
 }
 
-cv::Mat Landmark::getNormal()
-{
-    unique_lock<mutex> lock(mMutexPos);
-    return mNormalVector.clone();
-}
-
-Landmark::KeyFrameID Landmark::getReferenceKeyFrameId()
+void Landmark::addObservation(KeyFramePtr pKF, size_t obsId)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    return mnRefKFid;
-}
-
-void Landmark::addObservation(KeyFrameID id, size_t obsId)
-{
-    unique_lock<mutex> lock(mMutexFeatures);
-    if (mObservations.count(id))
+    if (mObservations.count(pKF))
         return;
-    mObservations[id] = obsId;
+    mObservations[pKF] = obsId;
     nObs++;
 }
 
-void Landmark::eraseObservation(KeyFrameID id)
+void Landmark::eraseObservation(KeyFramePtr pKF)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    if (mObservations.count(id)) {
+    if (mObservations.count(pKF)) {
         nObs--;
 
-        mObservations.erase(id);
-
-        if (mnRefKFid == id)
-            mnRefKFid = mObservations.begin()->first;
+        mObservations.erase(pKF);
     }
 }
 
-map<Landmark::KeyFrameID, size_t> Landmark::getObservations()
+map<Landmark::KeyFramePtr, size_t> Landmark::getObservations()
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mObservations;
 }
 
-list<pair<Landmark::KeyFrameID, size_t>> Landmark::getObservationsList()
+list<pair<Landmark::KeyFramePtr, size_t>> Landmark::getObservationsList()
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    list<pair<KeyFrameID, size_t>> r;
+    list<pair<KeyFramePtr, size_t>> r;
     r.insert(r.end(), mObservations.begin(), mObservations.end());
     return r;
-}
-
-int Landmark::observations()
-{
-    unique_lock<mutex> lock(mMutexFeatures);
-    return nObs;
 }
 
 cv::Vec3b Landmark::getColor()
@@ -102,66 +85,43 @@ void Landmark::setColor(const cv::Vec3b& color)
     mColor = color;
 }
 
+void Landmark::setDescriptor(cv::Mat& desc)
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    desc.copyTo(mDescriptor);
+}
+
 cv::Mat Landmark::getDescriptor()
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mDescriptor.clone();
 }
 
-int Landmark::getIndexInKeyFrame(KeyFrameID id)
+int Landmark::id()
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    if (mObservations.count(id))
-        return int(mObservations[id]);
+    return mnId;
+}
+
+int Landmark::obs()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return nObs;
+}
+
+int Landmark::getIndexInKeyFrame(KeyFramePtr pKF)
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    if (mObservations.count(pKF))
+        return int(mObservations[pKF]);
     else
         return -1;
 }
 
-bool Landmark::isInKeyFrame(KeyFrameID id)
+bool Landmark::isInKeyFrame(KeyFramePtr pKF)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    return (mObservations.count(id));
-}
-
-void Landmark::updateNormalAndDepth()
-{
-    map<KeyFrameID, size_t> observations;
-    KeyFrameID refKFid;
-    cv::Mat Pos;
-    {
-        unique_lock<mutex> lock1(mMutexFeatures);
-        unique_lock<mutex> lock2(mMutexPos);
-
-        observations = mObservations;
-        refKFid = mnRefKFid;
-        Pos = mWorldPos.clone();
-    }
-
-    if (observations.empty())
-        return;
-
-    cv::Mat normal = cv::Mat::zeros(3, 1, CV_32F);
-    int n = 0;
-    for (auto& pr : observations) {
-        Frame::Ptr pKF = mpMap->getKeyFrame(pr.first);
-        if (!pKF)
-            continue;
-        if (!pKF->isKF())
-            continue;
-        cv::Mat Owi = pKF->getCameraCenter();
-        cv::Mat normali = mWorldPos - Owi;
-        normal = normal + normali / cv::norm(normali);
-        n++;
-    }
-
-    Frame::Ptr pRefKFid = mpMap->getKeyFrame(refKFid);
-    cv::Mat PC = Pos - pRefKFid->getCameraCenter();
-    const float dist = cv::norm(PC);
-
-    {
-        unique_lock<mutex> lock3(mMutexPos);
-        mNormalVector = normal / n;
-    }
+    return (mObservations.count(pKF));
 }
 
 bool Landmark::operator==(const Landmark& pLM) const
